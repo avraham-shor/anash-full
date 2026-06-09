@@ -1,0 +1,32 @@
+# version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./anash-server
+      dockerfile: Dockerfile
+    image: anash-server:latest
+    container_name: anash-server
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./anash-server/.env
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./anash-client
+      dockerfile: Dockerfile
+    image: anash-client:latest
+    container_name: anash-client
+    ports:
+      - "4000:80"
+    env_file:
+      - ./anash-client/.env
+    depends_on:
+      - server
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
