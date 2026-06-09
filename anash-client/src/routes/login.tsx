@@ -26,44 +26,59 @@ export default function Login() {
     };
 
     return (
-        <div className="App">
-            <h1>כניסה לרשימת אנ"ש</h1>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <input
-                    type="phone"
-                    placeholder="מספר סלולרי"
-                    className={styles.searchInput}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    dir="ltr"
-                    autoComplete="phone"
-                />
-                <input
-                    type="password"
-                    placeholder="סיסמה (אופציונלי)"
-                    className={styles.searchInput}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    dir="ltr"
-                    autoComplete="current-password"
-                />
-                <p style={{ fontSize: '14px', color: 'var(--text)', margin: '4px 0 12px', maxWidth: '80%' }}>
-                    אם יש לכם סיסמה אנא הקלידו אותה.
-                    <br />
-                    אחרת - הכניסו מספר סלולרי בלבד.
-                </p>
-                {error && (
-                    <p style={{ color: 'var(--accent)', margin: '4px 0 8px' }}>{error}</p>
-                )}
-                <button
-                    type="submit"
-                    className={styles.searchButton}
-                    disabled={loading}
-                >
-                    {loading ? 'מתחבר...' : 'כניסה'}
-                </button>
-            </form>
+        <div className={styles.loginPage}>
+            <div className={styles.loginCard}>
+                <div className={styles.loginBrand}>
+                    <div className={styles.loginBrandIcon}>📖</div>
+                    <h1 className={styles.loginTitle}>רשימת אנ&quot;ש</h1>
+                    <p className={styles.loginSubtitle}>כניסה לרשימת הקהילה</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className={styles.loginForm}>
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>מספר סלולרי</label>
+                        <input
+                            type="tel"
+                            placeholder="050-000-0000"
+                            className={styles.input}
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            required
+                            dir="ltr"
+                            autoComplete="tel"
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>
+                            סיסמה <span className={styles.formOptional}>(אופציונלי)</span>
+                        </label>
+                        <input
+                            type="password"
+                            placeholder="הכנס סיסמה אם יש לך"
+                            className={styles.input}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            dir="ltr"
+                            autoComplete="current-password"
+                        />
+                    </div>
+
+                    <p className={styles.formHint}>
+                        אם אין לך סיסמה — הכנס מספר סלולרי בלבד
+                    </p>
+
+                    {error && <p className={styles.formError}>{error}</p>}
+
+                    <button
+                        type="submit"
+                        className={styles.btnPrimary}
+                        disabled={loading}
+                    >
+                        {loading ? 'מתחבר...' : 'כניסה לרשימה'}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 }

@@ -6,22 +6,29 @@ import {
   Scripts,
   ScrollRestoration,
   useNavigate,
+  useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
 import "./styles.css";
-import { ButtonGoToMenu } from "./components/button-go-to-menu";
 import { AuthProvider, useAuth } from "./context/auth";
+import styles from './App.module.css';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="he" dir="rtl">
       <head>
         <meta charSet="utf-8" />
         <link rel="icon" type="image/svg+xml" href="/favicon.png" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>רשימת אנ"ש</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
         <Meta />
         <Links />
       </head>
@@ -36,12 +43,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function LogoutButton() {
+function AppHeader() {
   const { token, logout, name } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  if (!token) return null;
+  const isLoginPage = location.pathname === '/login';
+  const isHomePage = location.pathname === '/' || location.pathname === '';
 
+  if (isLoginPage) return null;
 
   const handleLogout = () => {
     logout();
@@ -49,51 +59,39 @@ function LogoutButton() {
   };
 
   return (
-    <>
-      <button
-        onClick={handleLogout}
-        style={{
-          position: 'fixed',
-          top: '12px',
-          left: '12px',
-          padding: '6px 14px',
-          border: '2px solid var(--border)',
-          borderRadius: '4px',
-          background: 'var(--bg2)',
-          color: 'var(--text-h)',
-          cursor: 'pointer',
-          fontSize: '14px',
-          zIndex: 1000,
-        }}
-      >
-        יציאה
-      </button>
-      <div
-        style={{
-          position: 'fixed',
-          top: '12px',
-          right: '12px',
-          padding: '6px 14px',
-          border: '2px solid var(--border)',
-          borderRadius: '4px',
-          background: 'var(--bg2)',
-          color: 'var(--text-h)',
-          cursor: 'pointer',
-          fontSize: '14px',
-          zIndex: 1000,
-        }}
-      >
-        שלום {name || ''}
+    <header className={styles.header}>
+      <div className={styles.headerInner}>
+        <div className={styles.headerStart}>
+          {!isHomePage && (
+            <button onClick={() => navigate('/')} className={styles.backBtn}>
+              ← חזרה
+            </button>
+          )}
+        </div>
+
+        <div className={styles.headerCenter}>
+          <span className={styles.headerLogo}>📖 רשימת אנ&quot;ש</span>
+        </div>
+
+        <div className={styles.headerEnd}>
+          {token && (
+            <>
+              {name && <span className={styles.headerUser}>שלום {name}</span>}
+              <button onClick={handleLogout} className={styles.btnGhost}>
+                יציאה
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </>
+    </header>
   );
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <LogoutButton />
-      <ButtonGoToMenu />
+      <AppHeader />
       <Outlet />
     </AuthProvider>
   );
@@ -105,7 +103,6 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    console.log(error)
     message = error.status === 404 ? "404" : "Error";
     details =
       error.status === 404
@@ -117,11 +114,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
+    <main style={{ padding: '60px 24px', textAlign: 'center' }}>
       <h1>{message}</h1>
-      <p>{details}</p>
+      <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>{details}</p>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre style={{ textAlign: 'left', overflow: 'auto', padding: '16px', background: 'var(--surface)', borderRadius: '12px', marginTop: '20px', fontSize: '13px' }}>
           <code>{stack}</code>
         </pre>
       )}

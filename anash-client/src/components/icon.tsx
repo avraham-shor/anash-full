@@ -7,12 +7,13 @@ export function Icon({ type, contactValue }: {
 }) {
     if (!contactValue) return null;
 
-    let link, image, text;
+    let link = '', image = '', text = '';
+
     switch (type) {
         case 'phone':
             link = `tel:${contactValue}`;
             image = "/phone-call.png";
-            text = "טלפון";
+            text = "חייג";
             break;
         case 'whatsapp':
             link = getWhatsappUrl(contactValue);
@@ -24,12 +25,19 @@ export function Icon({ type, contactValue }: {
             image = "/gmail.png";
             text = "אימייל";
             break;
+        default:
+            return null;
     }
+
     return (
-        link && <div>
-            <a target="_blank" href={link}>
-                <img className={styles.icon} src={image} alt={text} />
-            </a>
-        </div>
+        <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.contactBtn}
+        >
+            <img className={styles.contactBtnIcon} src={image} alt={text} />
+            <span className={styles.contactBtnLabel}>{text}</span>
+        </a>
     );
 }
