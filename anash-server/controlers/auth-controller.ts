@@ -35,9 +35,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             res.json({ token });
             return;
         }
-        
+
         //temporary for testing
-        if(!row.password){
+        if (!row.password) {
             row.password = "9790";
         }
 
