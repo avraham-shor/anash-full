@@ -1,0 +1,1 @@
+import{A as e,M as t,O as n,P as r,s as i,t as a}from"./jsx-runtime-Bt7QF6Oe.js";import{n as o}from"./auth-Bbnn52uX.js";var s=r(t(),1),c=a(),l=e(function(){let{token:e}=o(),t=n();return(0,s.useEffect)(()=>{e||t(`/login`,{replace:!0})},[e,t]),e?(0,c.jsx)(i,{}):null});export{l as default};
