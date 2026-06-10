@@ -2,7 +2,7 @@ import { createContext, useContext, useState } from 'react';
 
 const AUTH_URL = 'https://anash-full-production.up.railway.app/api/auth/login';
 
-console.log("AUTH_URL....", AUTH_URL);
+console.log("AUTH_URL....", JSON.stringify(AUTH_URL));
 
 interface AuthContextType {
     token: string | null;
