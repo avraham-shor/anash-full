@@ -5,6 +5,8 @@ const MIN_ITEMS_TO_SELECT = 'id, salutation, full_name_search, father_name, husb
 
 const EXCLUDED_CITIES = `('ירושלים', 'מודיעין עילית', 'ביתר עילית', 'בני ברק', 'טבריה', 'גבעת זאב')`;
 
+const ORDER_BY_NAME = ` ORDER BY last_name, first_name`;
+
 const getItemsToDisplay = (isAdmin: string) => {
     const isAdminBoolean = isAdmin === 'true';
     return isAdminBoolean ?
@@ -16,7 +18,7 @@ const getItemsToDisplay = (isAdmin: string) => {
 
 const getUsers = async (req: any, res: any) => {
     try {
-        const result = await pool.query(`SELECT ${MIN_ITEMS_TO_SELECT} FROM users`);
+        const result = await pool.query(`SELECT ${MIN_ITEMS_TO_SELECT} FROM users ${ORDER_BY_NAME}`);
         res.send(result.rows);
     } catch (err) {
         throw err;
@@ -27,7 +29,7 @@ const getUserById = async (req: any, res: any) => {
     const { isAdmin } = req.query;
     try {
         const result = await pool.query(
-            `SELECT ${getItemsToDisplay(isAdmin)} FROM users WHERE id = $1`,
+            `SELECT ${getItemsToDisplay(isAdmin)} FROM users WHERE id = $1 ${ORDER_BY_NAME}`,
             [req.params.id]
         );
         res.send(result.rows[0]);
@@ -60,6 +62,8 @@ const getUserByFullName = async (req: any, res: any) => {
         sqlQuery += ` AND city LIKE $${paramIndex++}`;
     }
 
+    sqlQuery += ORDER_BY_NAME;
+
     try {
         const result = await pool.query(sqlQuery, sqlParams);
         res.send(result.rows);
@@ -82,7 +86,7 @@ const getUserByPhoneNumber = async (req: any, res: any) => {
         whatsapp_number LIKE $4 OR 
         system_phone_1 LIKE $5 OR 
         system_phone_2 LIKE $6) 
-    AND synagogue LIKE $7 ORDER BY last_name, first_name`;
+    AND synagogue LIKE $7 ${ORDER_BY_NAME}`;
 
     if (city === 'אחר') {
         sqlQuery += ` AND city NOT IN ${EXCLUDED_CITIES}`;
@@ -110,6 +114,8 @@ const getUsersByPlace = async (req: any, res: any) => {
     } else if (city === 'אחר') {
         sqlQuery += ` AND city NOT IN ${EXCLUDED_CITIES}`;
     }
+
+    sqlQuery += ORDER_BY_NAME;
 
     try {
         const result = await pool.query(sqlQuery, sqlParams);
