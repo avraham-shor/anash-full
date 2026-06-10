@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react';
+import { AUTH_URL } from '../config';
 
 interface AuthContextType {
     token: string | null;
@@ -32,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const body: Record<string, string> = { phone };
         if (password) body.password = password;
 
-        const res = await fetch(import.meta.env.VITE_AUTH_URL, {
+        const res = await fetch(AUTH_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),

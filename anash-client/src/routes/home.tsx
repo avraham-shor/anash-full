@@ -4,6 +4,7 @@ import { cities, synagogues } from '../utiles/maps.tsx';
 import styles from '../App.module.css';
 import type { User } from '../models/user.ts';
 import { useAuth } from '../context/auth.tsx';
+import { USERS_URL } from '../config';
 
 function Home() {
     const [items, setItems] = useState<User[]>([]);
@@ -14,10 +15,9 @@ function Home() {
     const [showMoreFilters, setShowMoreFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const { token, isAdmin } = useAuth();
-    const base = import.meta.env.VITE_BASE_URL;
-    const shulURL = base + 'search/place';
-    const phoneURL = base + 'search/phone';
-    const nameURL = base + 'search/name';
+    const shulURL = USERS_URL + 'search/place';
+    const phoneURL = USERS_URL + 'search/phone';
+    const nameURL = USERS_URL + 'search/name';
 
     const authHeaders = { Authorization: `Bearer ${token}` };
 

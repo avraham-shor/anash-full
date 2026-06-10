@@ -1,4 +1,5 @@
 import styles from "../App.module.css";
+import { USERS_URL } from '../config';
 import type { User } from '../models/user.ts';
 import { Icon } from "./icon.tsx";
 import { useState } from "react";
@@ -212,7 +213,7 @@ export function EditPasswordModal({ user, show, token }: { user: User; show: boo
 }
 
 async function fetchPassword(userId: string, password: string, token: string) {
-    const response = await fetch(`${import.meta.env.VITE_BASE_URL}${userId}/password`, {
+    const response = await fetch(`${USERS_URL}${userId}/password`, {
         method: 'PUT',
         body: JSON.stringify({ password }),
         headers: {
