@@ -57,7 +57,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         );
         res.json({ token });
 
-    } catch {
-        res.status(500).json({ message: 'Database error' });
+    } catch (err) {
+        console.error('Auth error:', err);
+        res.status(500).json({ message: 'Server error' });
     }
 };
