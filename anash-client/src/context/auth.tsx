@@ -2,8 +2,6 @@ import { createContext, useContext, useState } from 'react';
 
 const AUTH_URL = 'https://anash-full-production.up.railway.app/api/auth/login';
 
-console.log("AUTH_URL....", AUTH_URL.length);
-
 interface AuthContextType {
     token: string | null;
     isAdmin: boolean;
@@ -35,8 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (phone: string, password?: string) => {
         const body: Record<string, string> = { phone };
         if (password) body.password = password;
-        console.log("body", body);
-        console.log("AUTH_URL", AUTH_URL);
 
         const res = await fetch(AUTH_URL, {
             method: 'POST',
