@@ -73,7 +73,16 @@ const getUserByPhoneNumber = async (req: any, res: any) => {
     const phoneParam = `%${number}%`;
     const sqlParams: string[] = [phoneParam, phoneParam, phoneParam, phoneParam, phoneParam, phoneParam, `%${shul || ''}%`];
 
-    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE (home_phone LIKE $1 OR husband_mobile LIKE $2 OR wife_mobile LIKE $3 OR whatsapp_number LIKE $4 OR system_phone_1 LIKE $5 OR system_phone_2 LIKE $6) AND synagogue LIKE $7`;
+    let sqlQuery = `
+    SELECT ${MIN_ITEMS_TO_SELECT} FROM users 
+    WHERE 
+        (home_phone LIKE $1 OR 
+        husband_mobile LIKE $2 OR 
+        wife_mobile LIKE $3 OR 
+        whatsapp_number LIKE $4 OR 
+        system_phone_1 LIKE $5 OR 
+        system_phone_2 LIKE $6) 
+    AND synagogue LIKE $7 ORDER BY last_name, first_name`;
 
     if (city === 'אחר') {
         sqlQuery += ` AND city NOT IN ${EXCLUDED_CITIES}`;
