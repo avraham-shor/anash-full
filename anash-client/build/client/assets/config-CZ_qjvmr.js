@@ -1,0 +1,1 @@
+var e=`https://anash-full-production.up.railway.app`;`${e}`;var t=`${e}/api/users/`;export{t};
