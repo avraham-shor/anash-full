@@ -33,8 +33,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (phone: string, password?: string) => {
         const body: Record<string, string> = { phone };
         if (password) body.password = password;
-        console.log(body);
-        console.log(AUTH_URL);
+        console.log("body", body);
+        console.log("AUTH_URL", AUTH_URL);
 
         const res = await fetch(AUTH_URL, {
             method: 'POST',
