@@ -1,131 +1,125 @@
-import sqlite3 from 'sqlite3';
 import bcrypt from 'bcryptjs';
+import pool from '../db.ts';
 
-const db = new sqlite3.Database('./anash-test.db');
 const MIN_ITEMS_TO_SELECT = 'id, salutation, full_name_search, father_name, husband_mobile, home_phone, city, street, building_number, entrance_number, apartment_number, neighborhood, synagogue';
 
+const EXCLUDED_CITIES = `('ירושלים', 'מודיעין עילית', 'ביתר עילית', 'בני ברק', 'טבריה', 'גבעת זאב')`;
 
 const getItemsToDisplay = (isAdmin: string) => {
     const isAdminBoolean = isAdmin === 'true';
     return isAdminBoolean ?
         '*' :
-        `id, salutation, first_name, last_name, father_name, full_name_search, wife_name, is_groom_of_rabbi, 
-    children_at_home_count, has_married_children, city, street, building_number, apartment_number, 
+        `id, salutation, first_name, last_name, father_name, full_name_search, wife_name, is_groom_of_rabbi,
+    children_at_home_count, has_married_children, city, street, building_number, apartment_number,
     entrance_number, neighborhood, synagogue, home_phone, husband_mobile, wife_mobile, whatsapp_number, husband_name, husband_father_name, email_1`;
 };
 
 const getUsers = async (req: any, res: any) => {
-    db.all(`SELECT ${MIN_ITEMS_TO_SELECT} FROM users`, (err: any, rows: any) => {
-        if (err) {
-            throw err;
-        }
-        res.send(rows);
-    });
+    try {
+        const result = await pool.query(`SELECT ${MIN_ITEMS_TO_SELECT} FROM users`);
+        res.send(result.rows);
+    } catch (err) {
+        throw err;
+    }
 };
 
 const getUserById = async (req: any, res: any) => {
     const { isAdmin } = req.query;
-    db.get(`SELECT ${getItemsToDisplay(isAdmin)} FROM users WHERE id = ?`, [req.params.id], (err: any, row: any) => {
-        if (err) {
-            throw err;
-        }
-        res.send(row);
-    });
+    try {
+        const result = await pool.query(
+            `SELECT ${getItemsToDisplay(isAdmin)} FROM users WHERE id = $1`,
+            [req.params.id]
+        );
+        res.send(result.rows[0]);
+    } catch (err) {
+        throw err;
+    }
 };
-
 
 const getUserByFullName = async (req: any, res: any) => {
     const { fullname, shul, city } = req.query;
-    const names = fullname.split(' ');
-    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE full_name_search LIKE ? AND synagogue LIKE ?`;
-    for (let i = 1; i < names.length; i++) {
-        sqlQuery += ' AND full_name_search LIKE ?';
+    const names = (fullname as string).split(' ').filter(Boolean);
+
+    const sqlParams: string[] = [];
+    let paramIndex = 1;
+
+    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE`;
+
+    for (let i = 0; i < names.length; i++) {
+        sqlParams.push(`%${names[i]}%`);
+        sqlQuery += `${i === 0 ? ' ' : ' AND '}full_name_search LIKE $${paramIndex++}`;
     }
-    if (city === 'אחר') {
-        sqlQuery += ' AND city NOT IN (\'ירושלים\', \'מודיעין עילית\', \'ביתר עילית\', \'בני ברק\', \'טבריה\', \'גבעת זאב\')';
-    } else {
-        sqlQuery += ' AND city LIKE ?';
-    }
-    const sqlParams = names.map((name: string) => `%${name}%`);
+
     sqlParams.push(`%${shul || ''}%`);
-    if (city !== 'אחר') {
+    sqlQuery += ` AND synagogue LIKE $${paramIndex++}`;
+
+    if (city === 'אחר') {
+        sqlQuery += ` AND city NOT IN ${EXCLUDED_CITIES}`;
+    } else {
         sqlParams.push(`%${city || ''}%`);
+        sqlQuery += ` AND city LIKE $${paramIndex++}`;
     }
 
-    db.all(
-        sqlQuery,
-        sqlParams,
-        (err, rows) => {
-            if (err) {
-                throw err;
-            }
-            res.send(rows);
-        });
+    try {
+        const result = await pool.query(sqlQuery, sqlParams);
+        res.send(result.rows);
+    } catch (err) {
+        throw err;
+    }
 };
-
 
 const getUserByPhoneNumber = async (req: any, res: any) => {
     const { number, shul, city } = req.query;
-    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE (home_phone LIKE ? OR husband_mobile LIKE ? OR wife_mobile LIKE ? OR whatsapp_number LIKE ? OR system_phone_1 LIKE ? OR system_phone_2 LIKE ?) AND synagogue LIKE ?`;
+    const phoneParam = `%${number}%`;
+    const sqlParams: string[] = [phoneParam, phoneParam, phoneParam, phoneParam, phoneParam, phoneParam, `%${shul || ''}%`];
+
+    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE (home_phone LIKE $1 OR husband_mobile LIKE $2 OR wife_mobile LIKE $3 OR whatsapp_number LIKE $4 OR system_phone_1 LIKE $5 OR system_phone_2 LIKE $6) AND synagogue LIKE $7`;
+
     if (city === 'אחר') {
-        sqlQuery += ' AND city NOT IN (\'ירושלים\', \'מודיעין עילית\', \'ביתר עילית\', \'בני ברק\', \'טבריה\', \'גבעת זאב\')';
+        sqlQuery += ` AND city NOT IN ${EXCLUDED_CITIES}`;
     } else {
-        sqlQuery += ' AND city LIKE ?';
-    }
-    const sqlParams = [
-        `%${number}%`, `%${number}%`, `%${number}%`, `%${number}%`, `%${number}%`, `%${number}%`, `%${shul || ''}%`
-    ];
-    if (city !== 'אחר') {
         sqlParams.push(`%${city || ''}%`);
+        sqlQuery += ` AND city LIKE $8`;
     }
 
-    db.all(
-        sqlQuery,
-        sqlParams,
-        (err, rows) => {
-            if (err) {
-                throw err;
-            }
-            res.send(rows);
-        });
+    try {
+        const result = await pool.query(sqlQuery, sqlParams);
+        res.send(result.rows);
+    } catch (err) {
+        throw err;
+    }
 };
 
 const getUsersByPlace = async (req: any, res: any) => {
     const { shul, city } = req.query;
-    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE synagogue LIKE ?`;
-    const sqlParams = [`%${shul || ''}%`];
+    const sqlParams: string[] = [`%${shul || ''}%`];
+    let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE synagogue LIKE $1`;
+
     if (city && city !== 'אחר') {
-        sqlQuery += ' AND city LIKE ?';
         sqlParams.push(`%${city}%`);
+        sqlQuery += ' AND city LIKE $2';
     } else if (city === 'אחר') {
-        sqlQuery += ' AND city NOT IN (\'ירושלים\', \'מודיעין עילית\', \'ביתר עילית\', \'בני ברק\', \'טבריה\', \'גבעת זאב\')';
+        sqlQuery += ` AND city NOT IN ${EXCLUDED_CITIES}`;
     }
-    db.all(
-        sqlQuery,
-        sqlParams,
-        (err, rows) => {
-            if (err) {
-                throw err;
-            }
-            res.send(rows);
-        });
+
+    try {
+        const result = await pool.query(sqlQuery, sqlParams);
+        res.send(result.rows);
+    } catch (err) {
+        throw err;
+    }
 };
 
 const updatePassword = async (req: any, res: any) => {
     const { id } = req.params;
     const { password } = req.body;
-    bcrypt.hash(password, 10)
-    db.run(`UPDATE users SET password = ? WHERE id = ?`, [password, id], (err: any) => {
-        if (err) {
-            throw err;
-        }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
         res.send({ message: 'Password updated successfully' });
-    });
+    } catch (err) {
+        throw err;
+    }
 };
-
-function debugQuery(sql: string, params: string[]) {
-    let i = 0;
-  return sql.replace(/\?/g, () => `'${params[i++]}'`);
-}
 
 export { getUsers, getUserById, getUserByFullName, getUserByPhoneNumber, getUsersByPlace, updatePassword };
