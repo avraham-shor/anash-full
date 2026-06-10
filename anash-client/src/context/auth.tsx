@@ -36,9 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const body: Record<string, string> = { phone };
         if (password) body.password = password;
         console.log("body", body);
-        console.log("AUTH_URL", 'https://anash-full-production.up.railway.app/api/auth/login');
+        console.log("AUTH_URL", AUTH_URL);
 
-        const res = await fetch('https://anash-full-production.up.railway.app/api/auth/login', {
+        const res = await fetch(AUTH_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
