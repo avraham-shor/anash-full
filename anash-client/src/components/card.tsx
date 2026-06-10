@@ -180,7 +180,7 @@ export function Card({ item, isAdmin, token }: Props) {
                         {showEditModal ? '✕ ביטול' : '🔑 הוסף / שנה סיסמה'}
                     </button>
                     {showEditModal && (
-                        <EditPasswordModal user={item} show={showEditModal} token={token} />
+                        <EditPasswordModal user={item} show={showEditModal} token={token} onClose={() => setShowEditModal(false)} />
                     )}
                 </div>
             </div>
@@ -188,13 +188,21 @@ export function Card({ item, isAdmin, token }: Props) {
     );
 }
 
-export function EditPasswordModal({ user, show, token }: { user: User; show: boolean; token: string | null }) {
+type ModalProps = {
+    user: User;
+    show: boolean;
+    token: string | null;
+    onClose: () => void;
+}
+
+export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
     if (!show) return null;
     const [password, setPassword] = useState('');
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         await fetchPassword(user.id, password, token!);
+        onClose();
     };
 
     return (
