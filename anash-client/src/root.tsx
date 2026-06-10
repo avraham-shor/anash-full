@@ -10,7 +10,6 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import "./app.css";
 import "./styles.css";
 import { AuthProvider, useAuth } from "./context/auth";
 import styles from './App.module.css';
