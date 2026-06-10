@@ -24,7 +24,9 @@ function decodePayload(token: string | null): Record<string, unknown> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [token, setToken] = useState<string | null>(() => localStorage.getItem('anash_token'));
+    const [token, setToken] = useState<string | null>(() =>
+        typeof window !== 'undefined' ? localStorage.getItem('anash_token') : null
+    );
 
     const login = async (phone: string, password?: string) => {
         const body: Record<string, string> = { phone };

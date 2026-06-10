@@ -87,6 +87,10 @@ function AppHeader() {
   );
 }
 
+export function HydrateFallback() {
+    return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
