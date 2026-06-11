@@ -30,7 +30,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             const token = jwt.sign(
                 { id: row.id, email: row.email_1, name: row.full_name_search, isAdmin: false },
                 secret,
-                { expiresIn: '5m' }
+                { expiresIn: '8h' }
             );
             res.json({ token });
             return;
@@ -53,12 +53,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const token = jwt.sign(
             { id: row.id, email: row.email_1, name: row.full_name_search, isAdmin: true },
             secret,
-            { expiresIn: '5m' }
+            { expiresIn: '8h' }
         );
         res.json({ token });
 
-    } catch (err) {
-        console.error('Auth error:', err);
-        res.status(500).json({ message: 'Server error' });
+    } catch {
+        res.status(500).json({ message: 'Database error' });
     }
 };
