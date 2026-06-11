@@ -1,0 +1,1 @@
+import{A as e,F as t,N as n,O as r,s as i,t as a}from"./jsx-runtime-DMpV7rJc.js";import{n as o}from"./auth-JKDxfib7.js";var s=t(n(),1),c=a(),l=e(function(){let{token:e,logout:t}=o(),n=r();return(0,s.useEffect)(()=>{e&&JSON.parse(e).expiry<Date.now()/1e3&&(t(),n(`/login`,{replace:!0})),e||n(`/login`,{replace:!0})},[e,n]),e?(0,c.jsx)(i,{}):null});export{l as default};

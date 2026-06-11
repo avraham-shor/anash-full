@@ -3,10 +3,17 @@ import { Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../context/auth.tsx';
 
 export default function ProtectedLayout() {
-    const { token } = useAuth();
+    const { token, logout } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
+        if (token) {
+            const tokenExpaired = JSON.parse(token).expiry < Date.now() / 1000;
+            if (tokenExpaired) {
+                logout();
+                navigate('/login', { replace: true });
+            }
+        }
         if (!token) {
             navigate('/login', { replace: true });
         }
