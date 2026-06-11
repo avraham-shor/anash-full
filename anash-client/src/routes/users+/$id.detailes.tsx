@@ -7,10 +7,10 @@ import { USERS_URL } from "../../config";
 
 export default function UserDetails() {
   const [user, setUser] = useState<User | null>(null);
-  const { token, isAdmin } = useAuth();
+  const { token, role } = useAuth();
   const { id } = useParams();
   useEffect(() => {
-    fetch(`${USERS_URL}${id}?isAdmin=${isAdmin}`, {
+    fetch(`${USERS_URL}${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(res => res.json())
@@ -21,6 +21,6 @@ export default function UserDetails() {
   }, [id]);
 
   return (
-    user ? <Card item={user} isAdmin={isAdmin} token={token} /> : <h1>loading...</h1>
+    user ? <Card item={user} role={role} token={token} /> : <h1>loading...</h1>
   );
 }

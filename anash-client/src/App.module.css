@@ -877,6 +877,11 @@
   box-shadow: var(--shadow-input-focus);
 }
 
+.passwordForm select.passwordInput {
+  direction: rtl;
+  cursor: pointer;
+}
+
 .passwordSubmitBtn {
   padding: 10px 20px;
   background: var(--gradient-primary);

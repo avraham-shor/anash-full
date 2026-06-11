@@ -3,12 +3,13 @@ import type { User } from '../models/user.ts';
 
 type Props = {
     item: User;
-    isAdmin: boolean;
+    role: 'user' | 'admin' | 'owner';
 };
 
-export function ShortCard({ item, isAdmin }: Props) {
+export function ShortCard({ item, role }: Props) {
+    const isAdmin = role !== 'user';
     function openDetails() {
-        window.location.href = `/users/${item.id}?isAdmin=${isAdmin}`;
+        window.location.href = `/users/${item.id}`;
     }
 
     const address = [item.city, item.street, item.building_number, item.neighborhood]

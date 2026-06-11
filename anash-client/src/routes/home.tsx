@@ -14,7 +14,7 @@ function Home() {
     const [city, setCity] = useState('');
     const [showMoreFilters, setShowMoreFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    const { token, isAdmin } = useAuth();
+    const { token, role } = useAuth();
     const shulURL = USERS_URL + 'search/place';
     const phoneURL = USERS_URL + 'search/phone';
     const nameURL = USERS_URL + 'search/name';
@@ -141,7 +141,7 @@ function Home() {
                     </div>
                     <div className={styles.resultsGrid}>
                         {items.map(item => (
-                            <ShortCard key={item.id} item={item} isAdmin={isAdmin} />
+                            <ShortCard key={item.id} item={item} role={role} />
                         ))}
                     </div>
                 </div>

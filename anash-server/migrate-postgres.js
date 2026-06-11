@@ -57,7 +57,8 @@ async function migrate() {
             street_lat REAL,
             street_lon REAL,
             coordinates TEXT,
-            password TEXT
+            password TEXT,
+            role TEXT
         )
     `);
     console.log('Table created (or already exists).');

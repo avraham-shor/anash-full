@@ -3,15 +3,20 @@ import { AUTH_URL } from '../config';
 
 interface AuthContextType {
     token: string | null;
-    isAdmin: boolean;
+    role: 'user' | 'admin' | 'owner';
     name: string;
     login: (phone: string, password?: string) => Promise<void>;
     logout: () => void;
 }
 
+interface JwtTokenPayload {
+    name?: string;
+    role?: 'user' | 'admin' | 'owner';
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function decodePayload(token: string | null): Record<string, unknown> {
+function decodePayload(token: string | null): JwtTokenPayload {
     if (!token) return {};
     try {
         const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -49,8 +54,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(null);
     };
 
+    const decodedToken = decodePayload(token);
+
     return (
-        <AuthContext.Provider value={{ token, isAdmin: decodePayload(token).isAdmin === true, name: (decodePayload(token).name as string) || '', login, logout }}>
+        <AuthContext.Provider value={{
+            token,
+            role: (decodedToken.role || 'user') as 'user' | 'admin' | 'owner',
+            name: (decodedToken.name || ''),
+            login,
+            logout
+        }}>
             {children}
         </AuthContext.Provider>
     );

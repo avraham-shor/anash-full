@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import pool from '../db.ts';
+import type { JwtParams } from '../interfaces/jwt-params';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
     const { phone, password } = req.body;
@@ -27,8 +28,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const secret = process.env.JWT_SECRET!;
 
         if (!password) {
-            const token = jwt.sign(
-                { id: row.id, email: row.email_1, name: row.full_name_search, isAdmin: false },
+            const token = jwt.sign({
+                id: row.id,
+                email: row.email_1,
+                name: row.full_name_search,
+                role: 'user'
+            } as JwtParams,
                 secret,
                 { expiresIn: '8h' }
             );
@@ -51,7 +56,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         }
 
         const token = jwt.sign(
-            { id: row.id, email: row.email_1, name: row.full_name_search, isAdmin: true },
+            {
+                id: row.id,
+                email: row.email_1,
+                name: row.full_name_search,
+                role: row.role || 'user'
+            } as JwtParams,
             secret,
             { expiresIn: '8h' }
         );

@@ -6,12 +6,13 @@ import { useState } from "react";
 
 type Props = {
     item: User;
-    isAdmin: boolean;
+    role: 'user' | 'admin' | 'owner';
     token: string | null;
 };
 
-export function Card({ item, isAdmin, token }: Props) {
+export function Card({ item, role, token }: Props) {
     const [showEditModal, setShowEditModal] = useState(false);
+    const isAdmin = role !== 'user';
 
     const address = [
         item.street,
@@ -171,8 +172,8 @@ export function Card({ item, isAdmin, token }: Props) {
                     <Icon type="email" contactValue={item.email_1 || item.email_2} />
                 </div>
 
-                {/* Password section */}
-                <div className={styles.passwordSection}>
+                {/* Owner section */}
+                {role === 'owner' && <div className={styles.passwordSection}>
                     <button
                         className={styles.passwordToggleBtn}
                         onClick={() => setShowEditModal(!showEditModal)}
@@ -182,7 +183,7 @@ export function Card({ item, isAdmin, token }: Props) {
                     {showEditModal && (
                         <EditPasswordModal user={item} show={showEditModal} token={token} onClose={() => setShowEditModal(false)} />
                     )}
-                </div>
+                </div>}
             </div>
         </div>
     );
@@ -196,13 +197,21 @@ type ModalProps = {
 }
 
 export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
-    if (!show) return null;
     const [password, setPassword] = useState('');
+    const [role, setRole] = useState('');
+    const [error, setError] = useState('');
+
+    if (!show) return null;
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        await fetchPassword(user.id, password, token!);
-        onClose();
+        setError('');
+        try {
+            await updateUser(user.id, password || undefined, role || undefined, token!);
+            onClose();
+        } catch {
+            setError('שגיאה בשמירה, נסה שוב');
+        }
     };
 
     return (
@@ -215,19 +224,31 @@ export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
                 className={styles.passwordInput}
                 dir="ltr"
             />
-            <button type="submit" className={styles.passwordSubmitBtn}>שמור</button>
+            <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className={styles.passwordInput}
+            >
+                <option value="">-- תפקיד --</option>
+                <option value="user">משתמש</option>
+                <option value="admin">מנהל</option>
+                <option value="owner">בעלים</option>
+            </select>
+            <button type="submit" className={styles.passwordSubmitBtn} disabled={!password && !role}>שמור</button>
+            {error && <span style={{ color: 'var(--error, red)', fontSize: '13px', width: '100%' }}>{error}</span>}
         </form>
     );
 }
 
-async function fetchPassword(userId: string, password: string, token: string) {
+async function updateUser(userId: string, password: string | undefined, role: string | undefined, token: string) {
     const response = await fetch(`${USERS_URL}${userId}/password`, {
         method: 'PUT',
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, role }),
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
         },
     });
+    if (!response.ok) throw new Error(await response.text());
     return response.json();
 }

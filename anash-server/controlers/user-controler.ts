@@ -1,5 +1,9 @@
 import bcrypt from 'bcryptjs';
 import pool from '../db.ts';
+import jwt from 'jsonwebtoken';
+import type { JwtParams } from '../interfaces/jwt-params';
+
+
 
 const MIN_ITEMS_TO_SELECT = 'id, salutation, full_name_search, father_name, husband_mobile, home_phone, city, street, building_number, entrance_number, apartment_number, neighborhood, synagogue';
 
@@ -7,9 +11,8 @@ const EXCLUDED_CITIES = `('ירושלים', 'מודיעין עילית', 'בית
 
 const ORDER_BY_NAME = ` ORDER BY last_name, first_name`;
 
-const getItemsToDisplay = (isAdmin: string) => {
-    const isAdminBoolean = isAdmin === 'true';
-    return isAdminBoolean ?
+const getItemsToDisplay = (isAdmin: boolean) => {
+    return isAdmin ?
         '*' :
         `id, salutation, first_name, last_name, father_name, full_name_search, wife_name, is_groom_of_rabbi,
     children_at_home_count, has_married_children, city, street, building_number, apartment_number,
@@ -26,15 +29,26 @@ const getUsers = async (req: any, res: any) => {
 };
 
 const getUserById = async (req: any, res: any) => {
-    const { isAdmin } = req.query;
+    const header = req.headers.authorization;
+    const { id } = req.params;
+    
+    if (!header) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+
+    const token = header.split(' ')[1];
     try {
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
+        const { role } = decodedToken;
+        const isAdmin = role === 'admin' || role === 'owner';
         const result = await pool.query(
             `SELECT ${getItemsToDisplay(isAdmin)} FROM users WHERE id = $1 ${ORDER_BY_NAME}`,
-            [req.params.id]
+            [id]
         );
         res.send(result.rows[0]);
     } catch (err) {
-        throw err;
+        res.status(401).json({ message: 'Unauthorized' });
     }
 };
 
@@ -125,16 +139,47 @@ const getUsersByPlace = async (req: any, res: any) => {
     }
 };
 
-const updatePassword = async (req: any, res: any) => {
+const updatePasswordOrRole = async (req: any, res: any) => {
     const { id } = req.params;
-    const { password } = req.body;
+    const { password, role } = req.body;
+    const header = req.headers.authorization;
+
+    if (!header) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+    const token = header.split(' ')[1];
+    let tokenRole: string;
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
-        res.send({ message: 'Password updated successfully' });
-    } catch (err) {
-        throw err;
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
+        tokenRole = decodedToken.role ?? '';
+    } catch {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+
+    if (tokenRole !== 'owner') {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+    try {
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
+        }
+        if (role) {
+            if (!['user', 'admin', 'owner'].includes(role)) {
+                res.status(400).json({ message: 'Invalid role' });
+                return;
+            }
+            await pool.query(`UPDATE users SET role = $1 WHERE id = $2`, [role, id]);
+        }
+        res.send({ message: 'Password or role updated successfully' });
+    } catch {
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-export { getUsers, getUserById, getUserByFullName, getUserByPhoneNumber, getUsersByPlace, updatePassword };
+
+
+export { getUsers, getUserById, getUserByFullName, getUserByPhoneNumber, getUsersByPlace, updatePasswordOrRole };
