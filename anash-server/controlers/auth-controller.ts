@@ -30,7 +30,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             const token = jwt.sign(
                 { id: row.id, email: row.email_1, name: row.full_name_search, isAdmin: false },
                 secret,
-                { expiresIn: '8h' }
+                { expiresIn: '5m' }
             );
             res.json({ token });
             return;
@@ -53,7 +53,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const token = jwt.sign(
             { id: row.id, email: row.email_1, name: row.full_name_search, isAdmin: true },
             secret,
-            { expiresIn: '8h' }
+            { expiresIn: '5m' }
         );
         res.json({ token });
 

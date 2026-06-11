@@ -8,16 +8,20 @@ export default function ProtectedLayout() {
 
     useEffect(() => {
         if (token) {
-            const tokenExpaired = JSON.parse(token).expiry < Date.now() / 1000;
-            if (tokenExpaired) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload.exp < Date.now() / 1000) {
+                    logout();
+                    navigate('/login', { replace: true });
+                }
+            } catch {
                 logout();
                 navigate('/login', { replace: true });
             }
-        }
-        if (!token) {
+        } else {
             navigate('/login', { replace: true });
         }
-    }, [token, navigate]);
+    }, [token, navigate, logout]);
 
     if (!token) return null;
 
