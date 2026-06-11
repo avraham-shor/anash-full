@@ -15,7 +15,6 @@ export default function UserDetails() {
     })
       .then(res => res.json())
       .then(data => {
-        console.log("user data", data);
         setUser(data);
       });
   }, [id]);
