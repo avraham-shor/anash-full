@@ -181,7 +181,7 @@ export function Card({ item, role, token }: Props) {
                         {showEditModal ? '✕ ביטול' : '🔑  הוסף / שנה סיסמה או תפקיד'}
                     </button>
                     {showEditModal && (
-                        <EditPasswordModal user={item} show={showEditModal} token={token} currentRole={role} onClose={() => setShowEditModal(false)} />
+                        <EditPasswordModal user={item} show={showEditModal} token={token} onClose={() => setShowEditModal(false)} />
                     )}
                 </div>}
             </div>
@@ -193,13 +193,12 @@ type ModalProps = {
     user: User;
     show: boolean;
     token: string | null;
-    currentRole: string;
     onClose: () => void;
 }
 
-export function EditPasswordModal({ user, show, token, onClose, currentRole }: ModalProps) {
+export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState(currentRole);
+    const [role, setRole] = useState<string>(user.role || 'user');
     const [error, setError] = useState('');
 
     if (!show) return null;

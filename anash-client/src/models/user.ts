@@ -81,6 +81,7 @@ export type User = {
   wife_email_2: string,
   full_name_search: string,
   synagogue: string,
-  notes: string
+  notes: string,
+  role: 'user' | 'admin' | 'owner'
 }
     
