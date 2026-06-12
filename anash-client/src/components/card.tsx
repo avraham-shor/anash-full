@@ -199,7 +199,7 @@ type ModalProps = {
 
 export function EditPasswordModal({ user, show, token, onClose, currentRole }: ModalProps) {
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('');
+    const [role, setRole] = useState(currentRole);
     const [error, setError] = useState('');
 
     if (!show) return null;
