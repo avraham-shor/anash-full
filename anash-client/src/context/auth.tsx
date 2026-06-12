@@ -3,6 +3,7 @@ import { AUTH_URL } from '../config';
 
 interface AuthContextType {
     token: string | null;
+    id: string;
     role: 'user' | 'admin' | 'owner';
     name: string;
     login: (phone: string, password?: string) => Promise<void>;
@@ -10,6 +11,7 @@ interface AuthContextType {
 }
 
 interface JwtTokenPayload {
+    id?: string;
     name?: string;
     role?: 'user' | 'admin' | 'owner';
 }
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return (
         <AuthContext.Provider value={{
             token,
+            id: decodedToken.id || '',
             role: (decodedToken.role || 'user') as 'user' | 'admin' | 'owner',
             name: (decodedToken.name || ''),
             login,

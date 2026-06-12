@@ -143,7 +143,7 @@ const getUsersByPlace = async (req: any, res: any) => {
 
 const updatePasswordOrRole = async (req: any, res: any) => {
     const { id } = req.params;
-    const { password, role } = req.body;
+    const { password, role, oldPassword } = req.body;
     const header = req.headers.authorization;
 
     if (!header) {
@@ -152,9 +152,11 @@ const updatePasswordOrRole = async (req: any, res: any) => {
     }
     const token = header.split(' ')[1];
     let tokenRole: string;
+    let tokenId: string;
     try {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
         tokenRole = decodedToken.role ?? '';
+        tokenId = String(decodedToken.id);
     } catch {
         res.status(401).json({ message: 'Unauthorized' });
         return;
@@ -164,6 +166,26 @@ const updatePasswordOrRole = async (req: any, res: any) => {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
+
+    // When changing own password, verify the old password first
+    if (password && tokenId === String(id)) {
+        if (!oldPassword) {
+            res.status(400).json({ message: 'נדרשת סיסמה נוכחית' });
+            return;
+        }
+        const userResult = await pool.query('SELECT password FROM users WHERE id = $1', [id]);
+        const currentHash = userResult.rows[0]?.password;
+        if (!currentHash) {
+            res.status(404).json({ message: 'User not found' });
+            return;
+        }
+        const isValid = await bcrypt.compare(oldPassword, currentHash);
+        if (!isValid) {
+            res.status(401).json({ message: 'הסיסמה הנוכחית שגויה' });
+            return;
+        }
+    }
+
     try {
         if (password) {
             const hashedPassword = await bcrypt.hash(password, 10);
