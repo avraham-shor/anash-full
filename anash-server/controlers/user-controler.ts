@@ -160,7 +160,7 @@ const updatePasswordOrRole = async (req: any, res: any) => {
         return;
     }
 
-    if (tokenRole !== 'owner') {
+    if (tokenRole === 'user') {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
@@ -169,7 +169,7 @@ const updatePasswordOrRole = async (req: any, res: any) => {
             const hashedPassword = await bcrypt.hash(password, 10);
             await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
         }
-        if (role) {
+        if (role && tokenRole === 'owner') {
             if (!['user', 'admin', 'owner'].includes(role)) {
                 res.status(400).json({ message: 'Invalid role' });
                 return;
