@@ -178,10 +178,10 @@ export function Card({ item, role, token }: Props) {
                         className={styles.passwordToggleBtn}
                         onClick={() => setShowEditModal(!showEditModal)}
                     >
-                        {showEditModal ? '✕ ביטול' : '🔑 הוסף / שנה סיסמה'}
+                        {showEditModal ? '✕ ביטול' : '🔑  הוסף / שנה סיסמה או תפקיד'}
                     </button>
                     {showEditModal && (
-                        <EditPasswordModal user={item} show={showEditModal} token={token} onClose={() => setShowEditModal(false)} />
+                        <EditPasswordModal user={item} show={showEditModal} token={token} currentRole={role} onClose={() => setShowEditModal(false)} />
                     )}
                 </div>}
             </div>
@@ -193,10 +193,11 @@ type ModalProps = {
     user: User;
     show: boolean;
     token: string | null;
+    currentRole: string;
     onClose: () => void;
 }
 
-export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
+export function EditPasswordModal({ user, show, token, onClose, currentRole }: ModalProps) {
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('');
     const [error, setError] = useState('');
