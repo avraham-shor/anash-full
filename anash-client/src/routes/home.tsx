@@ -4,7 +4,7 @@ import { cities, synagogues } from '../utiles/maps.tsx';
 import styles from '../App.module.css';
 import type { User } from '../models/user.ts';
 import { useAuth } from '../context/auth.tsx';
-import { USERS_URL } from '../config';
+import { USERS_URL, CHANGE_PASSWORD_URL } from '../config';
 
 function Home() {
     const [items, setItems] = useState<User[]>([]);
@@ -20,7 +20,7 @@ function Home() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
-    const { token, role, id } = useAuth();
+    const { token, role } = useAuth();
     const shulURL = USERS_URL + 'search/place';
     const phoneURL = USERS_URL + 'search/phone';
     const nameURL = USERS_URL + 'search/name';
@@ -44,8 +44,8 @@ function Home() {
         setPasswordError('');
         setPasswordLoading(true);
         try {
-            const res = await fetch(`${USERS_URL}${id}/password`, {
-                method: 'PUT',
+            const res = await fetch(CHANGE_PASSWORD_URL, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ oldPassword, password: newPassword }),
             });

@@ -5,7 +5,8 @@ import {
     getUserByFullName,
     getUserByPhoneNumber,
     getUsersByPlace,
-    updatePasswordOrRole
+    updateUserPassword,
+    updateUserRole,
 } from '../controlers/user-controler.ts';
 
 var router = express.Router();
@@ -15,7 +16,8 @@ router.get('/', getUsers);
 router.get('/search/name', getUserByFullName);
 router.get('/search/phone', getUserByPhoneNumber);
 router.get('/search/place', getUsersByPlace);
-router.put('/:id/password', updatePasswordOrRole);
+router.put('/:id/password', updateUserPassword);
+router.put('/:id/role', updateUserRole);
 router.get('/:id', getUserById);
 
 

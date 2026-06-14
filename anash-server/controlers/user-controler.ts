@@ -141,9 +141,9 @@ const getUsersByPlace = async (req: any, res: any) => {
     }
 };
 
-const updatePasswordOrRole = async (req: any, res: any) => {
+const updateUserPassword = async (req: any, res: any) => {
     const { id } = req.params;
-    const { password, role, oldPassword } = req.body;
+    const { password } = req.body;
     const header = req.headers.authorization;
 
     if (!header) {
@@ -151,59 +151,61 @@ const updatePasswordOrRole = async (req: any, res: any) => {
         return;
     }
     const token = header.split(' ')[1];
-    let tokenRole: string;
-    let tokenId: string;
     try {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
-        tokenRole = decodedToken.role ?? '';
-        tokenId = String(decodedToken.id);
+        if (decodedToken.role !== 'owner') {
+            res.status(403).json({ message: 'Unauthorized' });
+            return;
+        }
     } catch {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
 
-    if (tokenRole === 'user') {
-        res.status(401).json({ message: 'Unauthorized' });
+    if (!password) {
+        res.status(400).json({ message: 'Password is required' });
         return;
     }
-
-    // When changing own password, verify the old password first
-    if (password && tokenId === String(id)) {
-        if (!oldPassword) {
-            res.status(400).json({ message: 'נדרשת סיסמה נוכחית' });
-            return;
-        }
-        const userResult = await pool.query('SELECT password FROM users WHERE id = $1', [id]);
-        const currentHash = userResult.rows[0]?.password;
-        if (!currentHash) {
-            res.status(404).json({ message: 'User not found' });
-            return;
-        }
-        const isValid = await bcrypt.compare(oldPassword, currentHash);
-        if (!isValid) {
-            res.status(401).json({ message: 'הסיסמה הנוכחית שגויה' });
-            return;
-        }
-    }
-
     try {
-        if (password) {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
-        }
-        if (role && tokenRole === 'owner') {
-            if (!['user', 'admin', 'owner'].includes(role)) {
-                res.status(400).json({ message: 'Invalid role' });
-                return;
-            }
-            await pool.query(`UPDATE users SET role = $1 WHERE id = $2`, [role, id]);
-        }
-        res.send({ message: 'Password or role updated successfully' });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
+        res.send({ message: 'Password updated successfully' });
     } catch {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
 
+const updateUserRole = async (req: any, res: any) => {
+    const { id } = req.params;
+    const { role } = req.body;
+    const header = req.headers.authorization;
 
+    if (!header) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+    const token = header.split(' ')[1];
+    try {
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
+        if (decodedToken.role !== 'owner') {
+            res.status(403).json({ message: 'Unauthorized' });
+            return;
+        }
+    } catch {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
 
-export { getUsers, getUserById, getUserByFullName, getUserByPhoneNumber, getUsersByPlace, updatePasswordOrRole };
+    if (!role || !['user', 'admin', 'owner'].includes(role)) {
+        res.status(400).json({ message: 'Invalid role' });
+        return;
+    }
+    try {
+        await pool.query(`UPDATE users SET role = $1 WHERE id = $2`, [role, id]);
+        res.send({ message: 'Role updated successfully' });
+    } catch {
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export { getUsers, getUserById, getUserByFullName, getUserByPhoneNumber, getUsersByPlace, updateUserPassword, updateUserRole };

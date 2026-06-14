@@ -241,14 +241,21 @@ export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
 }
 
 async function updateUser(userId: string, password: string | undefined, role: string | undefined, token: string) {
-    const response = await fetch(`${USERS_URL}${userId}/password`, {
-        method: 'PUT',
-        body: JSON.stringify({ password, role }),
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-        },
-    });
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    if (password) {
+        const res = await fetch(`${USERS_URL}${userId}/password`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ password }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+    }
+    if (role) {
+        const res = await fetch(`${USERS_URL}${userId}/role`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ role }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+    }
 }
