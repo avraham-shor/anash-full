@@ -44,7 +44,7 @@ export const changeOwnPassword = async (req: Request, res: Response): Promise<vo
             res.status(404).json({ message: 'User not found' });
             return;
         }
-        const isValid = await bcrypt.compare(oldPassword, currentHash);
+        const isValid = (oldPassword === currentHash || await bcrypt.compare(oldPassword, currentHash));
         if (!isValid) {
             res.status(401).json({ message: 'הסיסמה הנוכחית שגויה' });
             return;
