@@ -1,6 +1,6 @@
 import express from 'express';
 import createError from 'http-errors';
-var router = express.Router();
+const router = express.Router();
 
 router.use((req, res, next) => {
     next(createError(404));

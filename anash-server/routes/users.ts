@@ -7,9 +7,9 @@ import {
     getUsersByPlace,
     updateUserPassword,
     updateUserRole,
-} from '../controlers/user-controler.ts';
+} from '../controllers/user-controller.ts';
 
-var router = express.Router();
+const router = express.Router();
 
 /* GET users listing. */
 router.get('/', getUsers);

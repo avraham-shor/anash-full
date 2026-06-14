@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
@@ -11,7 +11,7 @@ import authRouter from './routes/auth.ts';
 import pageNotFound from './routes/page-not-found.ts';
 import { verifyToken } from './middleware/auth.ts';
 
-var app = express();
+const app = express();
 
 // view engine setup
 app.set('views', path.join(process.cwd(), 'views'));
@@ -30,12 +30,9 @@ app.use('/api/users', verifyToken, usersRouter);
 app.use('*', pageNotFound);
 
 // error handler
-app.use(function (err: any, req: any, res: any) {
-  // set locals, only providing error in development
+app.use((err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
   res.status(err.status || 500);
   res.render('error');
 });

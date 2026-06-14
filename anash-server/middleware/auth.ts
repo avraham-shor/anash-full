@@ -25,5 +25,6 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
         next();
     } catch {
         res.status(403).json({ message: 'Invalid or expired token' });
+        return;
     }
 };

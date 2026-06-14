@@ -1,9 +1,8 @@
 import bcrypt from 'bcryptjs';
 import pool from '../db.ts';
-import jwt from 'jsonwebtoken';
+import type { Request, Response } from 'express';
 import type { JwtParams } from '../interfaces/jwt-params';
-
-
+import type { AuthRequest } from '../middleware/auth.ts';
 
 const MIN_ITEMS_TO_SELECT = 'id, salutation, full_name_search, father_name, husband_mobile, home_phone, city, street, building_number, entrance_number, apartment_number, neighborhood, synagogue';
 
@@ -19,40 +18,33 @@ const getItemsToDisplay = (isAdmin: boolean) => {
     entrance_number, neighborhood, synagogue, home_phone, husband_mobile, wife_mobile, whatsapp_number, husband_name, husband_father_name, email_1`;
 };
 
-const getUsers = async (req: any, res: any) => {
+export const getUsers = async (req: Request, res: Response): Promise<void> => {
     try {
         const result = await pool.query(`SELECT ${MIN_ITEMS_TO_SELECT} FROM users ${ORDER_BY_NAME}`);
-        res.send(result.rows);
+        res.json(result.rows);
     } catch (err) {
-        throw err;
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-const getUserById = async (req: any, res: any) => {
-    const header = req.headers.authorization;
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    
-    if (!header) {
-        res.status(401).json({ message: 'Unauthorized' });
-        return;
-    }
-
-    const token = header.split(' ')[1];
+    const { role } = (req as AuthRequest).user as JwtParams;
+    const isAdmin = role === 'admin' || role === 'owner';
     try {
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
-        const { role } = decodedToken;
-        const isAdmin = role === 'admin' || role === 'owner';
         const result = await pool.query(
             `SELECT ${getItemsToDisplay(isAdmin)} FROM users WHERE id = $1 ${ORDER_BY_NAME}`,
             [id]
         );
-        res.send(result.rows[0]);
+        res.json(result.rows[0]);
     } catch (err) {
-        res.status(401).json({ message: 'Unauthorized' });
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-const getUserByFullName = async (req: any, res: any) => {
+export const getUserByFullName = async (req: Request, res: Response): Promise<void> => {
     const { fullname, shul, city } = req.query;
     const names = (fullname as string).split(' ').filter(Boolean);
 
@@ -80,13 +72,14 @@ const getUserByFullName = async (req: any, res: any) => {
 
     try {
         const result = await pool.query(sqlQuery, sqlParams);
-        res.send(result.rows);
+        res.json(result.rows);
     } catch (err) {
-        throw err;
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-const getUserByPhoneNumber = async (req: any, res: any) => {
+export const getUserByPhoneNumber = async (req: Request, res: Response): Promise<void> => {
     const { number, shul, city } = req.query;
     const phoneParam = `%${number}%`;
     const sqlParams: string[] = [phoneParam, phoneParam, phoneParam, phoneParam, phoneParam, phoneParam, `%${shul || ''}%`];
@@ -113,13 +106,14 @@ const getUserByPhoneNumber = async (req: any, res: any) => {
 
     try {
         const result = await pool.query(sqlQuery, sqlParams);
-        res.send(result.rows);
+        res.json(result.rows);
     } catch (err) {
-        throw err;
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-const getUsersByPlace = async (req: any, res: any) => {
+export const getUsersByPlace = async (req: Request, res: Response): Promise<void> => {
     const { shul, city } = req.query;
     const sqlParams: string[] = [`%${shul || ''}%`];
     let sqlQuery = `SELECT ${MIN_ITEMS_TO_SELECT} FROM users WHERE synagogue LIKE $1`;
@@ -135,30 +129,20 @@ const getUsersByPlace = async (req: any, res: any) => {
 
     try {
         const result = await pool.query(sqlQuery, sqlParams);
-        res.send(result.rows);
+        res.json(result.rows);
     } catch (err) {
-        throw err;
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-const updateUserPassword = async (req: any, res: any) => {
+export const updateUserPassword = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { password } = req.body;
-    const header = req.headers.authorization;
+    const { role } = (req as AuthRequest).user as JwtParams;
 
-    if (!header) {
-        res.status(401).json({ message: 'Unauthorized' });
-        return;
-    }
-    const token = header.split(' ')[1];
-    try {
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
-        if (decodedToken.role !== 'owner') {
-            res.status(403).json({ message: 'Unauthorized' });
-            return;
-        }
-    } catch {
-        res.status(401).json({ message: 'Unauthorized' });
+    if (role !== 'owner') {
+        res.status(403).json({ message: 'Unauthorized' });
         return;
     }
 
@@ -169,43 +153,32 @@ const updateUserPassword = async (req: any, res: any) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashedPassword, id]);
-        res.send({ message: 'Password updated successfully' });
-    } catch {
+        res.json({ message: 'Password updated successfully' });
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-const updateUserRole = async (req: any, res: any) => {
+export const updateUserRole = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { role } = req.body;
-    const header = req.headers.authorization;
+    const { role: newRole } = req.body;
+    const { role } = (req as AuthRequest).user as JwtParams;
 
-    if (!header) {
-        res.status(401).json({ message: 'Unauthorized' });
-        return;
-    }
-    const token = header.split(' ')[1];
-    try {
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
-        if (decodedToken.role !== 'owner') {
-            res.status(403).json({ message: 'Unauthorized' });
-            return;
-        }
-    } catch {
-        res.status(401).json({ message: 'Unauthorized' });
+    if (role !== 'owner') {
+        res.status(403).json({ message: 'Unauthorized' });
         return;
     }
 
-    if (!role || !['user', 'admin', 'owner'].includes(role)) {
+    if (!newRole || !['user', 'admin', 'owner'].includes(newRole)) {
         res.status(400).json({ message: 'Invalid role' });
         return;
     }
     try {
-        await pool.query(`UPDATE users SET role = $1 WHERE id = $2`, [role, id]);
-        res.send({ message: 'Role updated successfully' });
-    } catch {
+        await pool.query(`UPDATE users SET role = $1 WHERE id = $2`, [newRole, id]);
+        res.json({ message: 'Role updated successfully' });
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Internal server error' });
     }
 };
-
-export { getUsers, getUserById, getUserByFullName, getUserByPhoneNumber, getUsersByPlace, updateUserPassword, updateUserRole };
