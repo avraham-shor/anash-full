@@ -7,6 +7,8 @@ import type { JwtParams } from '../interfaces/jwt-params';
 
 export const changeOwnPassword = async (req: Request, res: Response): Promise<void> => {
     const { oldPassword, password } = req.body;
+    console.log('change own password', oldPassword, password);
+
     const header = req.headers.authorization;
 
     if (!header) {
@@ -36,6 +38,8 @@ export const changeOwnPassword = async (req: Request, res: Response): Promise<vo
     try {
         const result = await pool.query('SELECT password FROM users WHERE id = $1', [userId]);
         const currentHash = result.rows[0]?.password;
+        console.log('currentHash', currentHash);
+
         if (!currentHash) {
             res.status(404).json({ message: 'User not found' });
             return;
