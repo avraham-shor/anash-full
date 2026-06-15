@@ -7,5 +7,6 @@ export default [
         route("users", "routes/users+/_layout.tsx", [
             route(":id", "routes/users+/$id.details.tsx"),
         ]),
+        route("login-logs", "routes/login-logs.tsx"),
     ]),
 ] satisfies RouteConfig;

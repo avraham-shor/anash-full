@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { ShortCard } from '../components/short-card.tsx';
 import { cities, synagogues } from '../utils/maps.ts';
 import styles from './home.module.css';
@@ -104,11 +105,18 @@ function Home() {
             <div className={styles.pageHeader}>
                 <h1 className={styles.pageTitle}>רשימת אנ&quot;ש</h1>
                 <p className={styles.pageSubtitle}>חפש חברי קהילה לפי שם, טלפון, עיר או בית כנסת</p>
-                {(role === 'admin' || role === 'owner') && (
-                    <button className={styles.changePasswordBtn} onClick={() => setShowPasswordModal(true)}>
-                        🔑 שנה סיסמה
-                    </button>
-                )}
+                <div className={styles.headerActions}>
+                    {(role === 'admin' || role === 'owner') && (
+                        <button className={styles.changePasswordBtn} onClick={() => setShowPasswordModal(true)}>
+                            🔑 שנה סיסמה
+                        </button>
+                    )}
+                    {role === 'owner' && (
+                        <Link to="/login-logs" className={styles.dashboardBtn}>
+                            📊 יומן כניסות
+                        </Link>
+                    )}
+                </div>
             </div>
 
             {showPasswordModal && (
