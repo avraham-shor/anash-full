@@ -1,4 +1,5 @@
-import styles from "../App.module.css";
+import { Link } from 'react-router';
+import styles from '../App.module.css';
 import type { User } from '../models/user.ts';
 
 type Props = {
@@ -7,16 +8,11 @@ type Props = {
 };
 
 export function ShortCard({ item, role }: Props) {
-    const isAdmin = role !== 'user';
-    function openDetails() {
-        window.location.href = `/users/${item.id}`;
-    }
-
     const address = [item.city, item.street, item.building_number, item.neighborhood]
         .filter(Boolean).join(' ');
 
     return (
-        <div className={styles.shortCard} onClick={openDetails}>
+        <Link to={`/users/${item.id}`} className={styles.shortCard}>
             <div className={styles.shortCardName}>
                 {item.salutation} {item.full_name_search}
             </div>
@@ -32,7 +28,7 @@ export function ShortCard({ item, role }: Props) {
                             📱 {item.husband_mobile || item.wife_mobile}
                         </span>
                         {item.home_phone && (
-                            <span style={{ fontSize: '13px', color: 'var(--text-muted)', direction: 'ltr' }}>
+                            <span className={styles.homePhone}>
                                 ☎ {item.home_phone}
                             </span>
                         )}
@@ -41,18 +37,18 @@ export function ShortCard({ item, role }: Props) {
 
                 {address && (
                     <div className={styles.shortCardRow}>
-                        <span style={{ opacity: 0.6, fontSize: '13px' }}>🏠</span>
+                        <span className={styles.iconOpacity}>🏠</span>
                         <span className={styles.shortCardRowText}>{address}</span>
                     </div>
                 )}
 
                 {item.synagogue && (
                     <div className={styles.shortCardRow}>
-                        <span style={{ opacity: 0.6, fontSize: '13px' }}>🕍</span>
+                        <span className={styles.iconOpacity}>🕍</span>
                         <span className={styles.shortCardRowText}>{item.synagogue}</span>
                     </div>
                 )}
             </div>
-        </div>
+        </Link>
     );
 }

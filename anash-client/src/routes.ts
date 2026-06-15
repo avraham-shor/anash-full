@@ -5,7 +5,7 @@ export default [
     layout("routes/protected-layout.tsx", [
         index("routes/home.tsx"),
         route("users", "routes/users+/_layout.tsx", [
-            route(":id", "routes/users+/$id.detailes.tsx"),
+            route(":id", "routes/users+/$id.details.tsx"),
         ]),
     ]),
 ] satisfies RouteConfig;

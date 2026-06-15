@@ -1099,3 +1099,47 @@
   font-size: 15px;
   color: var(--text-muted);
 }
+
+/* ── Shared utility ─────────────────────────────────── */
+.ltrValue {
+  direction: ltr;
+  text-align: left;
+}
+
+.editError {
+  color: var(--error, red);
+  font-size: 13px;
+  width: 100%;
+}
+
+.homePhone {
+  font-size: 13px;
+  color: var(--text-muted);
+  direction: ltr;
+}
+
+.iconOpacity {
+  opacity: 0.6;
+  font-size: 13px;
+}
+
+/* ── Error page ──────────────────────────────────────── */
+.errorPage {
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.errorDetails {
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.errorStack {
+  text-align: left;
+  overflow: auto;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 12px;
+  margin-top: 20px;
+  font-size: 13px;
+}

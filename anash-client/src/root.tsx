@@ -7,11 +7,11 @@ import {
   ScrollRestoration,
   useNavigate,
   useLocation,
-} from "react-router";
+} from 'react-router';
 
-import type { Route } from "./+types/root";
-import "./styles.css";
-import { AuthProvider, useAuth } from "./context/auth";
+import type { Route } from './+types/root';
+import './styles.css';
+import { AuthProvider, useAuth } from './context/auth.tsx';
 import styles from './App.module.css';
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -117,11 +117,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main style={{ padding: '60px 24px', textAlign: 'center' }}>
+    <main className={styles.errorPage}>
       <h1>{message}</h1>
-      <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>{details}</p>
+      <p className={styles.errorDetails}>{details}</p>
       {stack && (
-        <pre style={{ textAlign: 'left', overflow: 'auto', padding: '16px', background: 'var(--surface)', borderRadius: '12px', marginTop: '20px', fontSize: '13px' }}>
+        <pre className={styles.errorStack}>
           <code>{stack}</code>
         </pre>
       )}

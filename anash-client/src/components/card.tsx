@@ -71,13 +71,13 @@ export function Card({ item, role, token }: Props) {
                                     {item.email_1 && (
                                         <div className={styles.cardInfoRow}>
                                             <span className={styles.cardInfoLabel}>אימייל</span>
-                                            <span className={styles.cardInfoValue} style={{ direction: 'ltr', textAlign: 'left' }}>{item.email_1}</span>
+                                            <span className={`${styles.cardInfoValue} ${styles.ltrValue}`}>{item.email_1}</span>
                                         </div>
                                     )}
                                     {item.email_2 && (
                                         <div className={styles.cardInfoRow}>
                                             <span className={styles.cardInfoLabel}>אימייל 2</span>
-                                            <span className={styles.cardInfoValue} style={{ direction: 'ltr', textAlign: 'left' }}>{item.email_2}</span>
+                                            <span className={`${styles.cardInfoValue} ${styles.ltrValue}`}>{item.email_2}</span>
                                         </div>
                                     )}
                                 </>
@@ -235,7 +235,7 @@ export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
                 <option value="owner">בעלים</option>
             </select>
             <button type="submit" className={styles.passwordSubmitBtn} disabled={!password && !role}>שמור</button>
-            {error && <span style={{ color: 'var(--error, red)', fontSize: '13px', width: '100%' }}>{error}</span>}
+            {error && <span className={styles.editError}>{error}</span>}
         </form>
     );
 }

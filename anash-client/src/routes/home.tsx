@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ShortCard } from '../components/short-card.tsx';
-import { cities, synagogues } from '../utiles/maps.tsx';
+import { cities, synagogues } from '../utils/maps.ts';
 import styles from '../App.module.css';
 import type { User } from '../models/user.ts';
 import { useAuth } from '../context/auth.tsx';
@@ -222,7 +222,7 @@ function Home() {
                             {synagogues
                                 .filter(s => !city || s.city === city)
                                 .map(s => (
-                                    <option key={s.value} value={s.value}>{s.lable}</option>
+                                    <option key={s.value} value={s.value}>{s.label}</option>
                                 ))}
                         </select>
                     </div>

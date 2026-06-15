@@ -1,5 +1,5 @@
 import styles from "../App.module.css";
-import { getWhatsappUrl } from "../utiles/utiles.ts";
+import { getWhatsappUrl } from "../utils/utils.ts";
 
 export function Icon({ type, contactValue }: {
     type: 'phone' | 'whatsapp' | 'email';

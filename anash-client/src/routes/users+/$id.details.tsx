@@ -1,9 +1,9 @@
-import { useParams } from "react-router";
-import { useState, useEffect } from "react";
-import type { User } from "../../models/user.ts";
-import { Card } from "../../components/card.tsx";
-import { useAuth } from "../../context/auth.tsx";
-import { USERS_URL } from "../../config";
+import { useParams } from 'react-router';
+import { useState, useEffect } from 'react';
+import type { User } from '../../models/user.ts';
+import { Card } from '../../components/card.tsx';
+import { useAuth } from '../../context/auth.tsx';
+import { USERS_URL } from '../../config';
 
 export default function UserDetails() {
   const [user, setUser] = useState<User | null>(null);
