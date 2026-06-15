@@ -93,11 +93,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        //temporary for testing
-        if (!row.password) {
-            row.password = "9790";
-        }
-
         const isMatch = row.password?.startsWith('$2')
             ? await bcrypt.compare(password, row.password)
             : row.password === password;
