@@ -77,6 +77,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        const ip = req.ip ?? null;
+        const ua = (req.headers['user-agent'] as string) ?? null;
+
+        const logLogin = (success: boolean) =>
+            pool.query(
+                `INSERT INTO user_logins (user_id, ip_address, user_agent, success) VALUES ($1, $2, $3, $4)`,
+                [row.id, ip, ua, success]
+            );
+
         const secret = process.env.JWT_SECRET!;
 
         if (!password) {
@@ -89,6 +98,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 secret,
                 { expiresIn: '8h' }
             );
+            await logLogin(true);
             res.json({ token });
             return;
         }
@@ -98,6 +108,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             : row.password === password;
 
         if (!isMatch) {
+            await logLogin(false);
             res.status(401).json({ message: 'סיסמה שגויה' });
             return;
         }
@@ -112,6 +123,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             secret,
             { expiresIn: '8h' }
         );
+        await logLogin(true);
         res.json({ token });
 
     } catch {

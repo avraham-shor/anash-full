@@ -17,7 +17,7 @@ const pool = new Pool({
 async function migrate() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
-            id TEXT,
+            id TEXT PRIMARY KEY,
             created_at TIMESTAMP,
             salutation TEXT,
             first_name TEXT,
@@ -61,6 +61,22 @@ async function migrate() {
             role TEXT
         )
     `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_logins (
+            id            BIGSERIAL PRIMARY KEY,
+            user_id       TEXT        NOT NULL REFERENCES users(id),
+            logged_in_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+            ip_address    INET,
+            user_agent    TEXT,
+            success       BOOLEAN       NOT NULL DEFAULT TRUE
+        )
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_user_logins_user_id ON user_logins (user_id, logged_in_at DESC)
+    `);
+
     console.log('Table created (or already exists).');
 
     const anash = fs.readFileSync('public/jsons/anash.json', 'utf-8');
