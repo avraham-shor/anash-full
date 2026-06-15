@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import pool from '../db.ts';
 import type { JwtParams } from '../interfaces/jwt-params';
+import type { AuthRequest } from '../middleware/auth.ts';
 
 export const changeOwnPassword = async (req: Request, res: Response): Promise<void> => {
     const { oldPassword, password } = req.body;
@@ -52,6 +53,33 @@ export const changeOwnPassword = async (req: Request, res: Response): Promise<vo
         const hashedPassword = await bcrypt.hash(password, 10);
         await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
         res.json({ message: 'הסיסמה עודכנה בהצלחה' });
+    } catch {
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
+export const getLoginLogs = async (req: Request, res: Response): Promise<void> => {
+    const { role } = (req as AuthRequest).user as JwtParams;
+    if (role !== 'owner') {
+        res.status(403).json({ message: 'Unauthorized' });
+        return;
+    }
+    try {
+        const result = await pool.query(`
+            SELECT
+                ul.id,
+                ul.user_id,
+                ul.logged_in_at,
+                ul.ip_address,
+                ul.user_agent,
+                ul.success,
+                u.full_name_search,
+                u.city
+            FROM user_logins ul
+            JOIN users u ON u.id = ul.user_id
+            ORDER BY ul.logged_in_at DESC
+        `);
+        res.json(result.rows);
     } catch {
         res.status(500).json({ message: 'Database error' });
     }
