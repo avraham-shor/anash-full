@@ -1,0 +1,102 @@
+/* ============================================================
+   SHORT CARD
+   ============================================================ */
+.shortCard {
+  display: block;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  text-align: right;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.shortCard::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.shortCard:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--primary);
+}
+
+.shortCard:hover::after {
+  opacity: 1;
+}
+
+.shortCard:active {
+  transform: translateY(-1px);
+}
+
+.shortCardName {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-bottom: 3px;
+}
+
+.shortCardFather {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.shortCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.shortCardRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+.shortCardRowText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.phoneBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  direction: ltr;
+}
+
+.homePhone {
+  font-size: 13px;
+  color: var(--text-muted);
+  direction: ltr;
+}
+
+.iconOpacity {
+  opacity: 0.6;
+  font-size: 13px;
+}

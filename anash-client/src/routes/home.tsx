@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ShortCard } from '../components/short-card.tsx';
 import { cities, synagogues } from '../utils/maps.ts';
-import styles from '../App.module.css';
+import styles from './home.module.css';
 import type { User } from '../models/user.ts';
 import { useAuth } from '../context/auth.tsx';
 import { USERS_URL, CHANGE_PASSWORD_URL } from '../config';
@@ -236,7 +236,7 @@ function Home() {
                     </div>
                     <div className={styles.resultsGrid}>
                         {items.map(item => (
-                            <ShortCard key={item.id} item={item} role={role} />
+                            <ShortCard key={item.id} item={item} />
                         ))}
                     </div>
                 </div>

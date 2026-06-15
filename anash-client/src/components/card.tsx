@@ -1,4 +1,4 @@
-import styles from "../App.module.css";
+import styles from './card.module.css';
 import { USERS_URL } from '../config';
 import type { User } from '../models/user.ts';
 import { Icon } from "./icon.tsx";

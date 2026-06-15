@@ -1,0 +1,43 @@
+/* ============================================================
+   CONTACT BUTTON
+   ============================================================ */
+.contactBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition), background var(--transition);
+  text-decoration: none;
+  flex: 1;
+  min-width: 90px;
+}
+
+.contactBtn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.contactBtnIcon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.contactBtnLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+
+.contactBtn:hover .contactBtnLabel {
+  color: var(--primary);
+}

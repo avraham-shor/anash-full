@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/auth.tsx';
-import styles from '../App.module.css';
+import styles from './login.module.css';
 
 export default function Login() {
     const { login } = useAuth();

@@ -1,13 +1,12 @@
 import { Link } from 'react-router';
-import styles from '../App.module.css';
+import styles from './short-card.module.css';
 import type { User } from '../models/user.ts';
 
 type Props = {
     item: User;
-    role: 'user' | 'admin' | 'owner';
 };
 
-export function ShortCard({ item, role }: Props) {
+export function ShortCard({ item }: Props) {
     const address = [item.city, item.street, item.building_number, item.neighborhood]
         .filter(Boolean).join(' ');
 

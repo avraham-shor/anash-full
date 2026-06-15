@@ -12,7 +12,7 @@ import {
 import type { Route } from './+types/root';
 import './styles.css';
 import { AuthProvider, useAuth } from './context/auth.tsx';
-import styles from './App.module.css';
+import styles from './root.module.css';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

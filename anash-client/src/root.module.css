@@ -1,0 +1,167 @@
+/* ============================================================
+   HEADER
+   ============================================================ */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--header-height);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--page-padding);
+  gap: 12px;
+}
+
+.headerStart {
+  display: flex;
+  align-items: center;
+  min-width: 80px;
+}
+
+.headerCenter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
+}
+
+.headerLogo {
+  font-size: 18px;
+  font-weight: 800;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.3px;
+}
+
+.headerEnd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 80px;
+  justify-content: flex-end;
+}
+
+.headerUser {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .headerUser { display: none; }
+  .headerLogo { font-size: 16px; }
+}
+
+/* ============================================================
+   BACK BUTTON
+   ============================================================ */
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 16px;
+  background: transparent;
+  color: var(--text-body);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.backBtn:hover {
+  background: var(--bg-alt);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background: transparent;
+  color: var(--text-body);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btnGhost:hover {
+  background: var(--bg-alt);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ============================================================
+   ERROR PAGE
+   ============================================================ */
+.errorPage {
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.errorDetails {
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.errorStack {
+  text-align: left;
+  overflow: auto;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 12px;
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+/* ============================================================
+   LOADING
+   ============================================================ */
+.loadingPage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 50vh;
+}
+
+.spinner {
+  width: 42px;
+  height: 42px;
+  border: 3px solid var(--primary-light);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  font-size: 15px;
+  color: var(--text-muted);
+}

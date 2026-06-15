@@ -1,4 +1,4 @@
-import styles from "../App.module.css";
+import styles from './icon.module.css';
 import { getWhatsappUrl } from "../utils/utils.ts";
 
 export function Icon({ type, contactValue }: {
