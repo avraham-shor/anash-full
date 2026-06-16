@@ -4,6 +4,7 @@ import type { User } from '../../models/user.ts';
 import { Card } from '../../components/card.tsx';
 import { useAuth } from '../../context/auth.tsx';
 import { USERS_URL } from '../../config';
+import { Loader } from '../../components/loader.tsx';
 
 export default function UserDetails() {
   const [user, setUser] = useState<User | null>(null);
@@ -20,6 +21,6 @@ export default function UserDetails() {
   }, [id]);
 
   return (
-    user ? <Card item={user} role={role} token={token} /> : <h1>loading...</h1>
+    user ? <Card item={user} role={role} token={token} /> : <Loader />
   );
 }
