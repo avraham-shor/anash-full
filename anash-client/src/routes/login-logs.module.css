@@ -70,11 +70,30 @@
   align-items: center;
   gap: 6px;
   transition: var(--transition);
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
 }
 
 .statCard:hover {
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-2px);
+}
+
+.statCardActive {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light), var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.statSuccess.statCardActive {
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px #DCFCE7, var(--shadow-card-hover);
+}
+
+.statFail.statCardActive {
+  border-color: #DC2626;
+  box-shadow: 0 0 0 3px #FEF2F2, var(--shadow-card-hover);
 }
 
 .statNumber {
@@ -231,6 +250,11 @@
 .emptyIcon {
   font-size: 48px;
   opacity: 0.25;
+}
+
+.stateText {
+  font-size: 16px;
+  color: var(--text-muted);
 }
 
 .errorBox {

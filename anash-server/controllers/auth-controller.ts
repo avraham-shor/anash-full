@@ -64,6 +64,7 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
         res.status(403).json({ message: 'Unauthorized' });
         return;
     }
+    const isSuccess = req.query.success;
     try {
         const result = await pool.query(`
             SELECT
@@ -77,6 +78,7 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
                 u.city
             FROM user_logins ul
             JOIN users u ON u.id = ul.user_id
+            ${isSuccess ? `WHERE ul.success = ${isSuccess}` : ''}
             ORDER BY ul.logged_in_at DESC
         `);
         res.json(result.rows);

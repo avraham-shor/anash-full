@@ -16,6 +16,8 @@ interface LoginLog {
     city: string;
 }
 
+type LogFilter = 'all' | 'success' | 'fail';
+
 function formatDate(iso: string) {
     return new Date(iso).toLocaleString('he-IL', {
         day: '2-digit',
@@ -34,27 +36,40 @@ function truncate(str: string | null, len = 55) {
 function LoginLogs() {
     const { token, role } = useAuth();
     const [logs, setLogs] = useState<LoginLog[]>([]);
+    const [stats, setStats] = useState({ total: 0, successful: 0, failed: 0 });
+    const [filter, setFilter] = useState<LogFilter>('all');
     const [loading, setLoading] = useState(true);
+    const [tableLoading, setTableLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
         fetch(LOGIN_LOGS_URL, { headers: { Authorization: `Bearer ${token}` } })
             .then(res => {
-                if (!res.ok) throw new Error('שגיאה בטעינת הנתונים');
+                if (!res.ok) throw new Error();
                 return res.json();
             })
-            .then(data => {
+            .then((data: LoginLog[]) => {
+                const successful = data.filter(l => l.success).length;
+                setStats({ total: data.length, successful, failed: data.length - successful });
                 setLogs(data);
                 setLoading(false);
             })
             .catch(() => { setError('שגיאה בטעינת יומן הכניסות'); setLoading(false); });
     }, [token]);
 
-    if (role !== 'owner') return <Navigate to="/" replace />;
+    function applyFilter(f: LogFilter) {
+        if (f === filter) return;
+        setFilter(f);
+        setTableLoading(true);
+        const url = f === 'all'
+            ? LOGIN_LOGS_URL
+            : `${LOGIN_LOGS_URL}?success=${f === 'success'}`;
+        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => res.json())
+            .then((data: LoginLog[]) => { setLogs(data); setTableLoading(false); });
+    }
 
-    const total = logs.length;
-    const successful = logs.filter(l => l.success).length;
-    const failed = total - successful;
+    if (role !== 'owner') return <Navigate to="/" replace />;
 
     return (
         <div className={styles.page}>
@@ -73,25 +88,36 @@ function LoginLogs() {
             {!loading && !error && (
                 <>
                     <div className={styles.statsRow}>
-                        <div className={styles.statCard}>
-                            <span className={styles.statNumber}>{total}</span>
+                        <button
+                            className={`${styles.statCard} ${filter === 'all' ? styles.statCardActive : ''}`}
+                            onClick={() => applyFilter('all')}
+                        >
+                            <span className={styles.statNumber}>{stats.total}</span>
                             <span className={styles.statLabel}>סה"כ כניסות</span>
-                        </div>
-                        <div className={`${styles.statCard} ${styles.statSuccess}`}>
-                            <span className={styles.statNumber}>{successful}</span>
+                        </button>
+                        <button
+                            className={`${styles.statCard} ${styles.statSuccess} ${filter === 'success' ? styles.statCardActive : ''}`}
+                            onClick={() => applyFilter('success')}
+                        >
+                            <span className={styles.statNumber}>{stats.successful}</span>
                             <span className={styles.statLabel}>כניסות מוצלחות</span>
-                        </div>
-                        <div className={`${styles.statCard} ${styles.statFail}`}>
-                            <span className={styles.statNumber}>{failed}</span>
+                        </button>
+                        <button
+                            className={`${styles.statCard} ${styles.statFail} ${filter === 'fail' ? styles.statCardActive : ''}`}
+                            onClick={() => applyFilter('fail')}
+                        >
+                            <span className={styles.statNumber}>{stats.failed}</span>
                             <span className={styles.statLabel}>כניסות כושלות</span>
-                        </div>
+                        </button>
                     </div>
 
                     <div className={styles.tableCard}>
-                        {logs.length === 0 ? (
+                        {tableLoading ? (
+                            <Loader />
+                        ) : logs.length === 0 ? (
                             <div className={styles.centerState}>
                                 <span className={styles.emptyIcon}>📋</span>
-                                <p className={styles.stateText}>אין כניסות רשומות עדיין</p>
+                                <p className={styles.stateText}>אין כניסות רשומות</p>
                             </div>
                         ) : (
                             <div className={styles.tableWrapper}>
