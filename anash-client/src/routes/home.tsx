@@ -13,7 +13,7 @@ function Home() {
     const [searchType, setSearchType] = useState<'phone' | 'name' | ''>('');
     const [synagogue, setSynagogue] = useState('');
     const [city, setCity] = useState('');
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [showMoreFilters, setShowMoreFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -65,6 +65,7 @@ function Home() {
     }
 
     function filterByPhone(number: string, currentSynagogue: string = synagogue, currentCity: string = city) {
+        setLoading(true);
         fetch(`${phoneURL}?number=${number}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
             .then(res => res.json())
             .then(data => {
@@ -75,6 +76,7 @@ function Home() {
     }
 
     function filterByName(name: string, currentSynagogue: string = synagogue, currentCity: string = city) {
+        setLoading(true);
         fetch(`${nameURL}?fullname=${name}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
             .then(res => res.json())
             .then(data => {
@@ -85,6 +87,7 @@ function Home() {
     }
 
     function setAllItems() {
+        setLoading(true);
         fetch(shulURL + `?shul=${synagogue}&city=${city}`, { headers: authHeaders })
             .then(res => res.json())
             .then(data => {
