@@ -227,23 +227,6 @@
   text-align: center;
 }
 
-.spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--primary-medium);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.stateText {
-  font-size: 15px;
-  color: var(--text-muted);
-}
 
 .emptyIcon {
   font-size: 48px;

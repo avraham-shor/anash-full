@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ShortCard } from '../components/short-card.tsx';
+import { Loader } from '../components/loader.tsx';
 import { cities, synagogues } from '../utils/maps.ts';
 import styles from './home.module.css';
 import type { User } from '../models/user.ts';
@@ -258,18 +259,7 @@ function Home() {
                 )}
             </div>
 
-            {loading && (
-                <div className={styles.loaderWrap}>
-                    <div className={styles.loaderCard}>
-                        <div className={styles.dots}>
-                            <span className={styles.dot} />
-                            <span className={styles.dot} />
-                            <span className={styles.dot} />
-                        </div>
-                        <p className={styles.loaderText}>טוען נתונים...</p>
-                    </div>
-                </div>
-            )}
+            {loading && <Loader />}
 
             {!loading && items.length > 0 && (
                 <div className={styles.resultsSection}>

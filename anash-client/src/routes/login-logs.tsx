@@ -3,6 +3,7 @@ import { Navigate, Link } from 'react-router';
 import { useAuth } from '../context/auth.tsx';
 import { LOGIN_LOGS_URL } from '../config';
 import styles from './login-logs.module.css';
+import { Loader } from '../components/loader.tsx';
 
 interface LoginLog {
     id: number;
@@ -63,12 +64,7 @@ function LoginLogs() {
                 <p className={styles.pageSubtitle}>רשימת כל הכניסות של משתמשים למערכת</p>
             </div>
 
-            {loading && (
-                <div className={styles.centerState}>
-                    <div className={styles.spinner} />
-                    <p className={styles.stateText}>טוען נתונים...</p>
-                </div>
-            )}
+            {loading && <Loader />}
 
             {error && (
                 <div className={styles.errorBox}>{error}</div>
