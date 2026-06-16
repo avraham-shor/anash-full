@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { ShortCard } from '../components/short-card.tsx';
 import { Loader } from '../components/loader.tsx';
 import { cities, synagogues } from '../utils/maps.ts';
@@ -8,15 +8,17 @@ import type { User } from '../models/user.ts';
 import { useAuth } from '../context/auth.tsx';
 import { USERS_URL, CHANGE_PASSWORD_URL } from '../config';
 
+type SearchType = 'phone' | 'name' | 'place' | '';
+
 function Home() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [inputValue, setInputValue] = useState(searchParams.get('q') ?? '');
     const [items, setItems] = useState<User[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchType, setSearchType] = useState<'phone' | 'name' | ''>('');
-    const [synagogue, setSynagogue] = useState('');
-    const [city, setCity] = useState('');
     const [loading, setLoading] = useState(false);
-    const [showMoreFilters, setShowMoreFilters] = useState(false);
-    const [hasSearched, setHasSearched] = useState(false);
+    const [showMoreFilters, setShowMoreFilters] = useState(
+        !!(searchParams.get('shul') || searchParams.get('city'))
+    );
+    const [hasSearched, setHasSearched] = useState(searchParams.size > 0);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -24,11 +26,45 @@ function Home() {
     const [passwordError, setPasswordError] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
     const { token, role } = useAuth();
+
+    const searchType = (searchParams.get('type') ?? '') as SearchType;
+    const synagogue = searchParams.get('shul') ?? '';
+    const city = searchParams.get('city') ?? '';
+
     const shulURL = USERS_URL + 'search/place';
     const phoneURL = USERS_URL + 'search/phone';
     const nameURL = USERS_URL + 'search/name';
-
     const authHeaders = { Authorization: `Bearer ${token}` };
+
+    useEffect(() => {
+        if (searchParams.size === 0) return;
+        const q = searchParams.get('q') ?? '';
+        const type = searchParams.get('type') ?? '';
+        const shul = searchParams.get('shul') ?? '';
+        const cty = searchParams.get('city') ?? '';
+        setLoading(true);
+        let url: string;
+        if (type === 'phone') {
+            url = `${phoneURL}?number=${q}&shul=${shul}&city=${cty}`;
+        } else if (type === 'name') {
+            url = `${nameURL}?fullname=${q}&shul=${shul}&city=${cty}`;
+        } else {
+            url = `${shulURL}?shul=${shul}&city=${cty}`;
+        }
+        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => res.json())
+            .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    function buildParams(q: string, type: SearchType, shul: string, cty: string): Record<string, string> {
+        const p: Record<string, string> = {};
+        if (q) p.q = q;
+        if (type) p.type = type;
+        if (shul) p.shul = shul;
+        if (cty) p.city = cty;
+        return p;
+    }
 
     function closeModal() {
         setShowPasswordModal(false);
@@ -65,62 +101,56 @@ function Home() {
         }
     }
 
-    function filterByPhone(number: string, currentSynagogue: string = synagogue, currentCity: string = city) {
+    function filterByPhone(number: string, currentSynagogue = synagogue, currentCity = city) {
+        setSearchParams(buildParams(number, 'phone', currentSynagogue, currentCity));
         setLoading(true);
         fetch(`${phoneURL}?number=${number}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
             .then(res => res.json())
-            .then(data => {
-                setItems(data);
-                setHasSearched(true);
-                setLoading(false);
-            });
+            .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     }
 
-    function filterByName(name: string, currentSynagogue: string = synagogue, currentCity: string = city) {
+    function filterByName(name: string, currentSynagogue = synagogue, currentCity = city) {
+        setSearchParams(buildParams(name, 'name', currentSynagogue, currentCity));
         setLoading(true);
         fetch(`${nameURL}?fullname=${name}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
             .then(res => res.json())
-            .then(data => {
-                setItems(data);
-                setHasSearched(true);
-                setLoading(false);
-            });
+            .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     }
 
     function setAllItems() {
+        setSearchParams(buildParams('', 'place', synagogue, city));
         setLoading(true);
-        fetch(shulURL + `?shul=${synagogue}&city=${city}`, { headers: authHeaders })
+        fetch(`${shulURL}?shul=${synagogue}&city=${city}`, { headers: authHeaders })
             .then(res => res.json())
-            .then(data => {
-                setItems(data);
-                setHasSearched(true);
-                setLoading(false);
-            });
+            .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     }
 
     function searchByPlace(syn: string, cty: string) {
-        setLoading(true);
         if (searchType === 'phone') {
-            filterByPhone(searchQuery, syn, cty);
+            filterByPhone(inputValue, syn, cty);
         } else if (searchType === 'name') {
-            filterByName(searchQuery, syn, cty);
+            filterByName(inputValue, syn, cty);
         } else if (syn || cty) {
+            setSearchParams(buildParams('', 'place', syn, cty));
+            setLoading(true);
             fetch(`${shulURL}?shul=${syn}&city=${cty}`, { headers: authHeaders })
                 .then(res => res.json())
-                .then(data => {
-                    setItems(data);
-                    setHasSearched(true);
-                    setLoading(false);
-                });
+                .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
         }
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
-            setSearchType('name');
-            filterByName(searchQuery);
+            filterByName(inputValue);
         }
     };
+
+    function resetSearch() {
+        setSearchParams({});
+        setItems([]);
+        setInputValue('');
+        setHasSearched(false);
+    }
 
     return (
         <div className={styles.homePage}>
@@ -197,22 +227,22 @@ function Home() {
                         type="text"
                         placeholder="הכנס שם או מספר טלפון..."
                         className={styles.searchInputField}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        value={searchQuery}
+                        value={inputValue}
                     />
                 </div>
 
                 <div className={styles.searchActionRow}>
                     <button
                         className={`${styles.btnSecondary} ${searchType === 'phone' ? styles.btnSecondaryActive : ''}`}
-                        onClick={() => { setSearchType('phone'); filterByPhone(searchQuery); }}
+                        onClick={() => filterByPhone(inputValue)}
                     >
                         📱 חיפוש לפי טלפון
                     </button>
                     <button
                         className={`${styles.btnSecondary} ${searchType === 'name' ? styles.btnSecondaryActive : ''}`}
-                        onClick={() => { setSearchType('name'); filterByName(searchQuery); }}
+                        onClick={() => filterByName(inputValue)}
                     >
                         👤 חיפוש לפי שם
                     </button>
@@ -230,8 +260,6 @@ function Home() {
                             className={styles.select}
                             value={city}
                             onChange={(e) => {
-                                setSynagogue('');
-                                setCity(e.target.value);
                                 searchByPlace('', e.target.value);
                             }}
                         >
@@ -244,7 +272,6 @@ function Home() {
                             className={styles.select}
                             value={synagogue}
                             onChange={(e) => {
-                                setSynagogue(e.target.value);
                                 searchByPlace(e.target.value, city);
                             }}
                         >
@@ -255,6 +282,14 @@ function Home() {
                                     <option key={s.value} value={s.value}>{s.label}</option>
                                 ))}
                         </select>
+                    </div>
+                )}
+
+                {hasSearched && (
+                    <div className={styles.resetRow}>
+                        <button className={styles.resetBtn} onClick={resetSearch}>
+                            ✕ נקה חיפוש
+                        </button>
                     </div>
                 )}
             </div>
@@ -274,7 +309,7 @@ function Home() {
                 </div>
             )}
 
-            {hasSearched && items.length === 0 && (
+            {hasSearched && !loading && items.length === 0 && (
                 <div className={styles.emptyState}>
                     <span className={styles.emptyIcon}>🔍</span>
                     <p className={styles.emptyText}>לא נמצאו תוצאות עבור החיפוש</p>

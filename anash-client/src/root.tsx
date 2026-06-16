@@ -62,7 +62,7 @@ function AppHeader() {
       <div className={styles.headerInner}>
         <div className={styles.headerStart}>
           {!isHomePage && (
-            <button onClick={() => navigate('/')} className={styles.backBtn}>
+            <button onClick={() => navigate(-1)} className={styles.backBtn}>
               ← חזרה
             </button>
           )}
