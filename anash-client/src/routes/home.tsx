@@ -256,9 +256,15 @@ function Home() {
             </div>
 
             {loading && (
-                <div className={styles.centerState}>
-                    <div className={styles.spinner} />
-                    <p className={styles.stateText}>טוען נתונים...</p>
+                <div className={styles.loaderWrap}>
+                    <div className={styles.loaderCard}>
+                        <div className={styles.dots}>
+                            <span className={styles.dot} />
+                            <span className={styles.dot} />
+                            <span className={styles.dot} />
+                        </div>
+                        <p className={styles.loaderText}>טוען נתונים...</p>
+                    </div>
                 </div>
             )}
 
