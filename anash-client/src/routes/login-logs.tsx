@@ -43,10 +43,8 @@ function LoginLogs() {
                 return res.json();
             })
             .then(data => {
-                setLogs(data); setLoading(false);
-                for (const log of data) {
-                    console.log(log);
-                }
+                setLogs(data);
+                setLoading(false);
             })
             .catch(() => { setError('שגיאה בטעינת יומן הכניסות'); setLoading(false); });
     }, [token]);

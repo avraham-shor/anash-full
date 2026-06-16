@@ -13,6 +13,7 @@ function Home() {
     const [searchType, setSearchType] = useState<'phone' | 'name' | ''>('');
     const [synagogue, setSynagogue] = useState('');
     const [city, setCity] = useState('');
+    const [loading, setLoading] = useState(true);
     const [showMoreFilters, setShowMoreFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -66,22 +67,35 @@ function Home() {
     function filterByPhone(number: string, currentSynagogue: string = synagogue, currentCity: string = city) {
         fetch(`${phoneURL}?number=${number}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
             .then(res => res.json())
-            .then(data => { setItems(data); setHasSearched(true); });
+            .then(data => {
+                setItems(data);
+                setHasSearched(true);
+                setLoading(false);
+            });
     }
 
     function filterByName(name: string, currentSynagogue: string = synagogue, currentCity: string = city) {
         fetch(`${nameURL}?fullname=${name}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
             .then(res => res.json())
-            .then(data => { setItems(data); setHasSearched(true); });
+            .then(data => {
+                setItems(data);
+                setHasSearched(true);
+                setLoading(false);
+            });
     }
 
     function setAllItems() {
         fetch(shulURL + `?shul=${synagogue}&city=${city}`, { headers: authHeaders })
             .then(res => res.json())
-            .then(data => { setItems(data); setHasSearched(true); });
+            .then(data => {
+                setItems(data);
+                setHasSearched(true);
+                setLoading(false);
+            });
     }
 
     function searchByPlace(syn: string, cty: string) {
+        setLoading(true);
         if (searchType === 'phone') {
             filterByPhone(searchQuery, syn, cty);
         } else if (searchType === 'name') {
@@ -89,7 +103,11 @@ function Home() {
         } else if (syn || cty) {
             fetch(`${shulURL}?shul=${syn}&city=${cty}`, { headers: authHeaders })
                 .then(res => res.json())
-                .then(data => { setItems(data); setHasSearched(true); });
+                .then(data => {
+                    setItems(data);
+                    setHasSearched(true);
+                    setLoading(false);
+                });
         }
     }
 
@@ -237,7 +255,14 @@ function Home() {
                 )}
             </div>
 
-            {items.length > 0 && (
+            {loading && (
+                <div className={styles.centerState}>
+                    <div className={styles.spinner} />
+                    <p className={styles.stateText}>טוען נתונים...</p>
+                </div>
+            )}
+
+            {!loading && items.length > 0 && (
                 <div className={styles.resultsSection}>
                     <div className={styles.resultsHeader}>
                         <span className={styles.resultCount}>✓ נמצאו {items.length} תוצאות</span>
