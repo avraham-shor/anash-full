@@ -42,7 +42,12 @@ function LoginLogs() {
                 if (!res.ok) throw new Error('שגיאה בטעינת הנתונים');
                 return res.json();
             })
-            .then(data => { setLogs(data); setLoading(false); })
+            .then(data => {
+                setLogs(data); setLoading(false);
+                for (const log of data) {
+                    console.log(log);
+                }
+            })
             .catch(() => { setError('שגיאה בטעינת יומן הכניסות'); setLoading(false); });
     }, [token]);
 
