@@ -17,7 +17,7 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## About this Application
 
-This application is a directory of Anash members in Kfar Chabad, Israel.
+This application is a directory of Anash members in Karlin Stollin, Israel.
 
 ## How to Run
 
