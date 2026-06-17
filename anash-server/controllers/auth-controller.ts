@@ -81,22 +81,22 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
     }
 
     const period = req.query.period as string | undefined;
-    if (period === 'today')       conditions.push(gte(userLogins.loggedInAt, sql`CURRENT_DATE`));
-    else if (period === 'week')   conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('week', NOW())`));
-    else if (period === 'month')  conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('month', NOW())`));
-    else if (period === 'year')   conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('year', NOW())`));
+    if (period === 'today') conditions.push(gte(userLogins.loggedInAt, sql`CURRENT_DATE`));
+    else if (period === 'week') conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('week', NOW())`));
+    else if (period === 'month') conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('month', NOW())`));
+    else if (period === 'year') conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('year', NOW())`));
 
     try {
         const rows = await db
             .select({
-                id:             userLogins.id,
-                userId:         userLogins.userId,
-                loggedInAt:     userLogins.loggedInAt,
-                ipAddress:      userLogins.ipAddress,
-                userAgent:      userLogins.userAgent,
-                success:        userLogins.success,
-                fullNameSearch: users.fullNameSearch,
-                city:           users.city,
+                id: userLogins.id,
+                userId: userLogins.userId,
+                loggedInAt: userLogins.loggedInAt,
+                ipAddress: userLogins.ipAddress,
+                userAgent: userLogins.userAgent,
+                success: userLogins.success,
+                fullName: users.fullName,
+                city: users.city,
             })
             .from(userLogins)
             .innerJoin(users, eq(users.id, userLogins.userId))
@@ -136,7 +136,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const logLogin = (success: boolean) =>
             db.insert(userLogins).values({
-                userId:    row.id,
+                userId: row.id,
                 ipAddress: ip,
                 userAgent: ua,
                 success,
@@ -146,10 +146,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         if (!password) {
             const token = jwt.sign({
-                id:    row.id,
+                id: row.id,
                 email: row.email1,
-                name:  row.fullNameSearch,
-                role:  'user',
+                name: row.fullName,
+                role: 'user',
             } as JwtParams, secret, { expiresIn: '8h' });
             await logLogin(true);
             res.json({ token });
@@ -167,10 +167,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         }
 
         const token = jwt.sign({
-            id:    row.id,
+            id: row.id,
             email: row.email1,
-            name:  row.fullNameSearch,
-            role:  row.role || 'user',
+            name: row.fullName,
+            role: row.role || 'user',
         } as JwtParams, secret, { expiresIn: '8h' });
         await logLogin(true);
         res.json({ token });

@@ -7,28 +7,28 @@ type Props = {
 };
 
 export function ShortCard({ item }: Props) {
-    const address = [item.city, item.street, item.building_number, item.neighborhood]
+    const address = [item.city, item.street, item.buildingNumber, item.neighborhood]
         .filter(Boolean).join(' ');
 
     return (
         <Link to={`/users/${item.id}`} className={styles.shortCard}>
             <div className={styles.shortCardName}>
-                {item.salutation} {item.full_name_search}
+                {item.salutation} {item.fullName}
             </div>
 
-            {item.father_name && (
-                <div className={styles.shortCardFather}>ב&quot;ר {item.father_name}</div>
+            {item.fatherName && (
+                <div className={styles.shortCardFather}>ב&quot;ר {item.fatherName}</div>
             )}
 
             <div className={styles.shortCardInfo}>
-                {(item.husband_mobile || item.wife_mobile) && (
+                {(item.husbandMobile || item.wifeMobile) && (
                     <div className={styles.shortCardRow}>
                         <span className={styles.phoneBadge}>
-                            📱 {item.husband_mobile || item.wife_mobile}
+                            📱 {item.husbandMobile || item.wifeMobile}
                         </span>
-                        {item.home_phone && (
+                        {item.homePhone && (
                             <span className={styles.homePhone}>
-                                ☎ {item.home_phone}
+                                ☎ {item.homePhone}
                             </span>
                         )}
                     </div>

@@ -16,9 +16,9 @@ export function Card({ item, role, token }: Props) {
 
     const address = [
         item.street,
-        item.building_number,
-        item.entrance_number && `כניסה ${item.entrance_number}`,
-        item.apartment_number && `דירה ${item.apartment_number}`,
+        item.buildingNumber,
+        item.entranceNumber && `כניסה ${item.entranceNumber}`,
+        item.apartmentNumber && `דירה ${item.apartmentNumber}`,
         item.neighborhood,
         item.city,
     ].filter(Boolean).join(', ');
@@ -30,7 +30,7 @@ export function Card({ item, role, token }: Props) {
                 <div className={styles.cardHeader}>
                     <div className={styles.cardAvatarCircle}>👤</div>
                     <h1 className={styles.cardHeaderName}>
-                        {item.salutation} {item.full_name_search}
+                        {item.salutation} {item.fullName}
                     </h1>
                     {item.synagogue && (
                         <p className={styles.cardHeaderSub}>🕍 {item.synagogue}</p>
@@ -39,45 +39,45 @@ export function Card({ item, role, token }: Props) {
 
                 <div className={styles.cardBody}>
                     {/* Contact */}
-                    {(item.husband_mobile || item.wife_mobile || item.home_phone || item.whatsapp_number) && (
+                    {(item.husbandMobile || item.wifeMobile || item.homePhone || item.whatsappNumber) && (
                         <div className={styles.cardSection}>
                             <div className={styles.cardSectionTitle}>📞 פרטי קשר</div>
-                            {item.husband_mobile && (
+                            {item.husbandMobile && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>נייד בעל</span>
-                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.husband_mobile}</span>
+                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.husbandMobile}</span>
                                 </div>
                             )}
-                            {item.wife_mobile && (
+                            {item.wifeMobile && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>נייד אשה</span>
-                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.wife_mobile}</span>
+                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.wifeMobile}</span>
                                 </div>
                             )}
-                            {item.home_phone && (
+                            {item.homePhone && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>טלפון בית</span>
-                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.home_phone}</span>
+                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.homePhone}</span>
                                 </div>
                             )}
-                            {item.whatsapp_number && (
+                            {item.whatsappNumber && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>וואטסאפ</span>
-                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.whatsapp_number}</span>
+                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.whatsappNumber}</span>
                                 </div>
                             )}
-                            {(item.email_1 || item.email_2) && (
+                            {(item.email1 || item.email2) && (
                                 <>
-                                    {item.email_1 && (
+                                    {item.email1 && (
                                         <div className={styles.cardInfoRow}>
                                             <span className={styles.cardInfoLabel}>אימייל</span>
-                                            <span className={`${styles.cardInfoValue} ${styles.ltrValue}`}>{item.email_1}</span>
+                                            <span className={`${styles.cardInfoValue} ${styles.ltrValue}`}>{item.email1}</span>
                                         </div>
                                     )}
-                                    {item.email_2 && (
+                                    {item.email2 && (
                                         <div className={styles.cardInfoRow}>
                                             <span className={styles.cardInfoLabel}>אימייל 2</span>
-                                            <span className={`${styles.cardInfoValue} ${styles.ltrValue}`}>{item.email_2}</span>
+                                            <span className={`${styles.cardInfoValue} ${styles.ltrValue}`}>{item.email2}</span>
                                         </div>
                                     )}
                                 </>
@@ -97,68 +97,68 @@ export function Card({ item, role, token }: Props) {
                     )}
 
                     {/* Family */}
-                    {(item.wife_name || item.father_name || item.children_at_home_count || item.has_married_children || item.is_groom_of_rabbi) && (
+                    {(item.wifeName || item.fatherName || item.childrenAtHomeCount || item.hasMarriedChildren || item.isGroomOfRabbi) && (
                         <div className={styles.cardSection}>
                             <div className={styles.cardSectionTitle}>👨‍👩‍👧‍👦 פרטי משפחה</div>
-                            {item.wife_name && (
+                            {item.wifeName && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>שם האשה</span>
-                                    <span className={styles.cardInfoValue}>{item.wife_name}</span>
+                                    <span className={styles.cardInfoValue}>{item.wifeName}</span>
                                 </div>
                             )}
-                            {item.father_name && (
+                            {item.fatherName && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>שם האב</span>
-                                    <span className={styles.cardInfoValue}>{item.father_name}</span>
+                                    <span className={styles.cardInfoValue}>{item.fatherName}</span>
                                 </div>
                             )}
-                            {(item.children_at_home_count !== undefined && item.children_at_home_count !== null) && (
+                            {(item.childrenAtHomeCount !== undefined && item.childrenAtHomeCount !== null) && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>ילדים בבית</span>
-                                    <span className={styles.cardInfoValue}>{item.children_at_home_count || 0}</span>
+                                    <span className={styles.cardInfoValue}>{item.childrenAtHomeCount || 0}</span>
                                 </div>
                             )}
-                            {item.has_married_children && +item.has_married_children > 0 && (
+                            {item.hasMarriedChildren && +item.hasMarriedChildren > 0 && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>נשואים</span>
-                                    <span className={styles.cardInfoValue}>💍 {item.has_married_children} ילדים נשואים</span>
+                                    <span className={styles.cardInfoValue}>💍 {item.hasMarriedChildren} ילדים נשואים</span>
                                 </div>
                             )}
-                            {item.is_groom_of_rabbi && (
+                            {item.isGroomOfRabbi && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>חתן הרב</span>
-                                    <span className={styles.cardInfoValue}>🎩 {item.is_groom_of_rabbi}</span>
+                                    <span className={styles.cardInfoValue}>🎩 {item.isGroomOfRabbi}</span>
                                 </div>
                             )}
                         </div>
                     )}
 
                     {/* Admin section */}
-                    {isAdmin && (item.id_number || item.wife_id_number || item.system_phone_1 || item.system_phone_2) && (
+                    {isAdmin && (item.idNumber || item.wifeIdNumber || item.systemPhone1 || item.systemPhone2) && (
                         <div className={`${styles.cardSection} ${styles.adminSection}`}>
                             <div className={styles.cardSectionTitle}>🔐 מידע מנהל</div>
-                            {item.id_number && (
+                            {item.idNumber && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>ת.ז. בעל</span>
-                                    <span className={styles.cardInfoValue}>{item.id_number}</span>
+                                    <span className={styles.cardInfoValue}>{item.idNumber}</span>
                                 </div>
                             )}
-                            {item.wife_id_number && (
+                            {item.wifeIdNumber && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>ת.ז. אשה</span>
-                                    <span className={styles.cardInfoValue}>{item.wife_id_number}</span>
+                                    <span className={styles.cardInfoValue}>{item.wifeIdNumber}</span>
                                 </div>
                             )}
-                            {item.system_phone_1 && (
+                            {item.systemPhone1 && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>טלפון מערכת 1</span>
-                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.system_phone_1}</span>
+                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.systemPhone1}</span>
                                 </div>
                             )}
-                            {item.system_phone_2 && (
+                            {item.systemPhone2 && (
                                 <div className={styles.cardInfoRow}>
                                     <span className={styles.cardInfoLabel}>טלפון מערכת 2</span>
-                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.system_phone_2}</span>
+                                    <span className={`${styles.cardInfoValue} ${styles.cardPhoneValue}`}>{item.systemPhone2}</span>
                                 </div>
                             )}
                         </div>
@@ -167,9 +167,9 @@ export function Card({ item, role, token }: Props) {
 
                 {/* Contact action buttons */}
                 <div className={styles.contactRow}>
-                    <Icon type="phone" contactValue={item.husband_mobile || item.wife_mobile} />
-                    <Icon type="whatsapp" contactValue={item.whatsapp_number || item.husband_mobile} />
-                    <Icon type="email" contactValue={item.email_1 || item.email_2} />
+                    <Icon type="phone" contactValue={item.husbandMobile || item.wifeMobile} />
+                    <Icon type="whatsapp" contactValue={item.whatsappNumber || item.husbandMobile} />
+                    <Icon type="email" contactValue={item.email1 || item.email2} />
                 </div>
 
                 {/* Owner section */}

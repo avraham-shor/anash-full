@@ -7,46 +7,46 @@ import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 
 const minColumns = {
-    id:              users.id,
-    salutation:      users.salutation,
-    fullNameSearch:  users.fullNameSearch,
-    fatherName:      users.fatherName,
-    husbandMobile:   users.husbandMobile,
-    homePhone:       users.homePhone,
-    city:            users.city,
-    street:          users.street,
-    buildingNumber:  users.buildingNumber,
-    entranceNumber:  users.entranceNumber,
+    id: users.id,
+    salutation: users.salutation,
+    fullName: users.fullName,
+    fatherName: users.fatherName,
+    husbandMobile: users.husbandMobile,
+    homePhone: users.homePhone,
+    city: users.city,
+    street: users.street,
+    buildingNumber: users.buildingNumber,
+    entranceNumber: users.entranceNumber,
     apartmentNumber: users.apartmentNumber,
-    neighborhood:    users.neighborhood,
-    synagogue:       users.synagogue,
+    neighborhood: users.neighborhood,
+    synagogue: users.synagogue,
 };
 
 const memberColumns = {
-    id:                  users.id,
-    salutation:          users.salutation,
-    firstName:           users.firstName,
-    lastName:            users.lastName,
-    fatherName:          users.fatherName,
-    fullNameSearch:      users.fullNameSearch,
-    wifeName:            users.wifeName,
-    isGroomOfRabbi:      users.isGroomOfRabbi,
+    id: users.id,
+    salutation: users.salutation,
+    firstName: users.firstName,
+    lastName: users.lastName,
+    fatherName: users.fatherName,
+    fullName: users.fullName,
+    wifeName: users.wifeName,
+    isGroomOfRabbi: users.isGroomOfRabbi,
     childrenAtHomeCount: users.childrenAtHomeCount,
-    hasMarriedChildren:  users.hasMarriedChildren,
-    city:                users.city,
-    street:              users.street,
-    buildingNumber:      users.buildingNumber,
-    apartmentNumber:     users.apartmentNumber,
-    entranceNumber:      users.entranceNumber,
-    neighborhood:        users.neighborhood,
-    synagogue:           users.synagogue,
-    homePhone:           users.homePhone,
-    husbandMobile:       users.husbandMobile,
-    wifeMobile:          users.wifeMobile,
-    whatsappNumber:      users.whatsappNumber,
-    husbandName:         users.husbandName,
-    husbandFatherName:   users.husbandFatherName,
-    email1:              users.email1,
+    hasMarriedChildren: users.hasMarriedChildren,
+    city: users.city,
+    street: users.street,
+    buildingNumber: users.buildingNumber,
+    apartmentNumber: users.apartmentNumber,
+    entranceNumber: users.entranceNumber,
+    neighborhood: users.neighborhood,
+    synagogue: users.synagogue,
+    homePhone: users.homePhone,
+    husbandMobile: users.husbandMobile,
+    wifeMobile: users.wifeMobile,
+    whatsappNumber: users.whatsappNumber,
+    husbandName: users.husbandName,
+    husbandFatherName: users.husbandFatherName,
+    email1: users.email1,
 };
 
 const EXCLUDED_CITIES = ['ירושלים', 'מודיעין עילית', 'ביתר עילית', 'בני ברק', 'טבריה', 'גבעת זאב'];
@@ -86,9 +86,9 @@ export const getUserByFullName = async (req: Request, res: Response): Promise<vo
     const { fullname, shul, city } = req.query;
     const names = (fullname as string).split(' ').filter(Boolean);
 
-    const nameConditions = names.map(n => like(users.fullNameSearch, `%${n}%`));
-    const shulCondition  = like(users.synagogue, `%${shul ?? ''}%`);
-    const cityCondition  = city === 'אחר'
+    const nameConditions = names.map(n => like(users.fullName, `%${n}%`));
+    const shulCondition = like(users.synagogue, `%${shul ?? ''}%`);
+    const cityCondition = city === 'אחר'
         ? notInArray(users.city, EXCLUDED_CITIES)
         : like(users.city, `%${city ?? ''}%`);
 
@@ -110,12 +110,12 @@ export const getUserByPhoneNumber = async (req: Request, res: Response): Promise
     const p = `%${number}%`;
 
     const phoneCondition = or(
-        like(users.homePhone,      p),
-        like(users.husbandMobile,  p),
-        like(users.wifeMobile,     p),
+        like(users.homePhone, p),
+        like(users.husbandMobile, p),
+        like(users.wifeMobile, p),
         like(users.whatsappNumber, p),
-        like(users.systemPhone1,   p),
-        like(users.systemPhone2,   p),
+        like(users.systemPhone1, p),
+        like(users.systemPhone2, p),
     );
     const shulCondition = like(users.synagogue, `%${shul ?? ''}%`);
     const cityCondition = city === 'אחר'

@@ -7,12 +7,12 @@ import { Loader } from '../components/loader.tsx';
 
 interface LoginLog {
     id: number;
-    user_id: string;
-    logged_in_at: string;
-    ip_address: string | null;
-    user_agent: string | null;
+    userId: string;
+    loggedInAt: string;
+    ipAddress: string | null;
+    userAgent: string | null;
     success: boolean;
-    full_name_search: string;
+    fullName: string;
     city: string;
 }
 
@@ -192,15 +192,15 @@ function LoginLogs() {
                                                     </span>
                                                 </td>
                                                 <td className={styles.nameCell}>
-                                                    <Link to={`/users/${log.user_id}`} className={styles.nameLink}>
-                                                        {log.full_name_search}
+                                                    <Link to={`/users/${log.userId}`} className={styles.nameLink}>
+                                                        {log.fullName}
                                                     </Link>
                                                 </td>
                                                 <td>{log.city || '—'}</td>
-                                                <td className={styles.dateCell}>{formatDate(log.logged_in_at)}</td>
-                                                <td className={styles.monoCell}>{log.ip_address || '—'}</td>
-                                                <td className={styles.uaCell} title={log.user_agent ?? ''}>
-                                                    {truncate(log.user_agent)}
+                                                <td className={styles.dateCell}>{formatDate(log.loggedInAt)}</td>
+                                                <td className={styles.monoCell}>{log.ipAddress || '—'}</td>
+                                                <td className={styles.uaCell} title={log.userAgent ?? ''}>
+                                                    {truncate(log.userAgent)}
                                                 </td>
                                             </tr>
                                         ))}
