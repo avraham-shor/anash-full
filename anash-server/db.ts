@@ -1,5 +1,7 @@
 import pg from 'pg';
 import 'dotenv/config';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import * as schema from './db/schema.ts';
 
 const { Pool } = pg;
 
@@ -8,4 +10,6 @@ const pool = new Pool({
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-export default pool;
+const db = drizzle(pool, { schema });
+
+export default db;

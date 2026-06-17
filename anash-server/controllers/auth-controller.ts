@@ -2,7 +2,9 @@ import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
-import pool from '../db.ts';
+import db from '../db.ts';
+import { users, userLogins } from '../db/schema.ts';
+import { eq, or, and, gte, desc, sql } from 'drizzle-orm';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 
@@ -37,21 +39,28 @@ export const changeOwnPassword = async (req: Request, res: Response): Promise<vo
     }
 
     try {
-        const result = await pool.query('SELECT password FROM users WHERE id = $1', [userId]);
-        const currentHash = result.rows[0]?.password;
+        const [row] = await db
+            .select({ password: users.password })
+            .from(users)
+            .where(eq(users.id, userId));
+
+        const currentHash = row?.password;
         console.log('currentHash', currentHash);
 
         if (!currentHash) {
             res.status(404).json({ message: 'User not found' });
             return;
         }
-        const isValid = (oldPassword === currentHash || await bcrypt.compare(oldPassword, currentHash));
+
+        const isValid = oldPassword === currentHash || await bcrypt.compare(oldPassword, currentHash);
         if (!isValid) {
             res.status(401).json({ message: 'הסיסמה הנוכחית שגויה' });
             return;
         }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
+        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+
         res.json({ message: 'הסיסמה עודכנה בהצלחה' });
     } catch {
         res.status(500).json({ message: 'Database error' });
@@ -65,42 +74,36 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
         return;
     }
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    const conditions = [];
 
     if (req.query.success !== undefined) {
-        params.push(req.query.success === 'true');
-        conditions.push(`ul.success = $${params.length}`);
+        conditions.push(eq(userLogins.success, req.query.success === 'true'));
     }
 
-    const periodSQL: Record<string, string> = {
-        today: "ul.logged_in_at >= CURRENT_DATE",
-        week:  "ul.logged_in_at >= DATE_TRUNC('week', NOW())",
-        month: "ul.logged_in_at >= DATE_TRUNC('month', NOW())",
-        year:  "ul.logged_in_at >= DATE_TRUNC('year', NOW())",
-    };
-    const period = req.query.period as string;
-    if (periodSQL[period]) conditions.push(periodSQL[period]);
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const period = req.query.period as string | undefined;
+    if (period === 'today')       conditions.push(gte(userLogins.loggedInAt, sql`CURRENT_DATE`));
+    else if (period === 'week')   conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('week', NOW())`));
+    else if (period === 'month')  conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('month', NOW())`));
+    else if (period === 'year')   conditions.push(gte(userLogins.loggedInAt, sql`DATE_TRUNC('year', NOW())`));
 
     try {
-        const result = await pool.query(`
-            SELECT
-                ul.id,
-                ul.user_id,
-                ul.logged_in_at,
-                ul.ip_address,
-                ul.user_agent,
-                ul.success,
-                u.full_name_search,
-                u.city
-            FROM user_logins ul
-            JOIN users u ON u.id = ul.user_id
-            ${where}
-            ORDER BY ul.logged_in_at DESC
-        `, params);
-        res.json(result.rows);
+        const rows = await db
+            .select({
+                id:             userLogins.id,
+                userId:         userLogins.userId,
+                loggedInAt:     userLogins.loggedInAt,
+                ipAddress:      userLogins.ipAddress,
+                userAgent:      userLogins.userAgent,
+                success:        userLogins.success,
+                fullNameSearch: users.fullNameSearch,
+                city:           users.city,
+            })
+            .from(userLogins)
+            .innerJoin(users, eq(users.id, userLogins.userId))
+            .where(conditions.length > 0 ? and(...conditions) : undefined)
+            .orderBy(desc(userLogins.loggedInAt));
+
+        res.json(rows);
     } catch {
         res.status(500).json({ message: 'Database error' });
     }
@@ -115,11 +118,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     try {
-        const result = await pool.query(
-            `SELECT * FROM users WHERE husband_mobile = $1 OR wife_mobile = $2`,
-            [phone, phone]
-        );
-        const row = result.rows[0];
+        const [row] = await db
+            .select()
+            .from(users)
+            .where(or(
+                eq(users.husbandMobile, phone),
+                eq(users.wifeMobile, phone),
+            ));
 
         if (!row) {
             res.status(401).json({ message: 'Invalid credentials' });
@@ -130,23 +135,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const ua = (req.headers['user-agent'] as string) ?? null;
 
         const logLogin = (success: boolean) =>
-            pool.query(
-                `INSERT INTO user_logins (user_id, ip_address, user_agent, success) VALUES ($1, $2, $3, $4)`,
-                [row.id, ip, ua, success]
-            );
+            db.insert(userLogins).values({
+                userId:    row.id,
+                ipAddress: ip,
+                userAgent: ua,
+                success,
+            });
 
         const secret = process.env.JWT_SECRET!;
 
         if (!password) {
             const token = jwt.sign({
-                id: row.id,
-                email: row.email_1,
-                name: row.full_name_search,
-                role: 'user'
-            } as JwtParams,
-                secret,
-                { expiresIn: '8h' }
-            );
+                id:    row.id,
+                email: row.email1,
+                name:  row.fullNameSearch,
+                role:  'user',
+            } as JwtParams, secret, { expiresIn: '8h' });
             await logLogin(true);
             res.json({ token });
             return;
@@ -162,16 +166,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        const token = jwt.sign(
-            {
-                id: row.id,
-                email: row.email_1,
-                name: row.full_name_search,
-                role: row.role || 'user'
-            } as JwtParams,
-            secret,
-            { expiresIn: '8h' }
-        );
+        const token = jwt.sign({
+            id:    row.id,
+            email: row.email1,
+            name:  row.fullNameSearch,
+            role:  row.role || 'user',
+        } as JwtParams, secret, { expiresIn: '8h' });
         await logLogin(true);
         res.json({ token });
 
