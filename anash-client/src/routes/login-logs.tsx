@@ -60,34 +60,52 @@ function LoginLogs() {
         return qs ? `${LOGIN_LOGS_URL}?${qs}` : LOGIN_LOGS_URL;
     }
 
-    function fetchLogs(sf: SuccessFilter, df: DatePeriod, initial = false) {
-        if (initial) setLoading(true); else setTableLoading(true);
+    function buildPeriodUrl(df: DatePeriod): string {
+        const p = new URLSearchParams();
+        if (df !== 'all') p.set('period', df);
+        const qs = p.toString();
+        return qs ? `${LOGIN_LOGS_URL}?${qs}` : LOGIN_LOGS_URL;
+    }
+
+    // Stats always reflect period only — never the success filter
+    function updateStats(df: DatePeriod) {
+        fetch(buildPeriodUrl(df), { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json())
+            .then((data: LoginLog[]) => {
+                const successful = data.filter(l => l.success).length;
+                setStats({ total: data.length, successful, failed: data.length - successful });
+            });
+    }
+
+    function updateTable(sf: SuccessFilter, df: DatePeriod, initial = false) {
+        if (!initial) setTableLoading(true);
         fetch(buildUrl(sf, df), { headers: { Authorization: `Bearer ${token}` } })
             .then(res => {
                 if (!res.ok) throw new Error();
                 return res.json();
             })
-            .then((data: LoginLog[]) => {
-                const successful = data.filter(l => l.success).length;
-                setStats({ total: data.length, successful, failed: data.length - successful });
-                setLogs(data);
-            })
+            .then((data: LoginLog[]) => { setLogs(data); })
             .catch(() => { if (initial) setError('שגיאה בטעינת יומן הכניסות'); })
             .finally(() => { if (initial) setLoading(false); else setTableLoading(false); });
     }
 
-    useEffect(() => { fetchLogs('all', 'all', true); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
+        setLoading(true);
+        updateStats('all');
+        updateTable('all', 'all', true);
+    }, [token]);
 
     function applySuccessFilter(sf: SuccessFilter) {
         if (sf === filter) return;
         setFilter(sf);
-        fetchLogs(sf, periodFilter);
+        updateTable(sf, periodFilter); // stats intentionally not touched
     }
 
     function applyPeriod(df: DatePeriod) {
         if (df === periodFilter) return;
         setPeriodFilter(df);
-        fetchLogs(filter, df);
+        updateStats(df);
+        updateTable(filter, df);
     }
 
     if (role !== 'owner') return <Navigate to="/" replace />;
