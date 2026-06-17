@@ -16,7 +16,16 @@ interface LoginLog {
     city: string;
 }
 
-type LogFilter = 'all' | 'success' | 'fail';
+type SuccessFilter = 'all' | 'success' | 'fail';
+type DatePeriod = 'all' | 'today' | 'week' | 'month' | 'year';
+
+const PERIOD_LABELS: Record<DatePeriod, string> = {
+    all: 'הכל',
+    today: 'היום',
+    week: 'השבוע',
+    month: 'החודש',
+    year: 'השנה',
+};
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleString('he-IL', {
@@ -37,13 +46,23 @@ function LoginLogs() {
     const { token, role } = useAuth();
     const [logs, setLogs] = useState<LoginLog[]>([]);
     const [stats, setStats] = useState({ total: 0, successful: 0, failed: 0 });
-    const [filter, setFilter] = useState<LogFilter>('all');
+    const [filter, setFilter] = useState<SuccessFilter>('all');
+    const [periodFilter, setPeriodFilter] = useState<DatePeriod>('all');
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        fetch(LOGIN_LOGS_URL, { headers: { Authorization: `Bearer ${token}` } })
+    function buildUrl(sf: SuccessFilter, df: DatePeriod): string {
+        const p = new URLSearchParams();
+        if (sf !== 'all') p.set('success', sf === 'success' ? 'true' : 'false');
+        if (df !== 'all') p.set('period', df);
+        const qs = p.toString();
+        return qs ? `${LOGIN_LOGS_URL}?${qs}` : LOGIN_LOGS_URL;
+    }
+
+    function fetchLogs(sf: SuccessFilter, df: DatePeriod, initial = false) {
+        if (initial) setLoading(true); else setTableLoading(true);
+        fetch(buildUrl(sf, df), { headers: { Authorization: `Bearer ${token}` } })
             .then(res => {
                 if (!res.ok) throw new Error();
                 return res.json();
@@ -52,21 +71,23 @@ function LoginLogs() {
                 const successful = data.filter(l => l.success).length;
                 setStats({ total: data.length, successful, failed: data.length - successful });
                 setLogs(data);
-                setLoading(false);
             })
-            .catch(() => { setError('שגיאה בטעינת יומן הכניסות'); setLoading(false); });
-    }, [token]);
+            .catch(() => { if (initial) setError('שגיאה בטעינת יומן הכניסות'); })
+            .finally(() => { if (initial) setLoading(false); else setTableLoading(false); });
+    }
 
-    function applyFilter(f: LogFilter) {
-        if (f === filter) return;
-        setFilter(f);
-        setTableLoading(true);
-        const url = f === 'all'
-            ? LOGIN_LOGS_URL
-            : `${LOGIN_LOGS_URL}?success=${f === 'success'}`;
-        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-            .then(res => res.json())
-            .then((data: LoginLog[]) => { setLogs(data); setTableLoading(false); });
+    useEffect(() => { fetchLogs('all', 'all', true); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    function applySuccessFilter(sf: SuccessFilter) {
+        if (sf === filter) return;
+        setFilter(sf);
+        fetchLogs(sf, periodFilter);
+    }
+
+    function applyPeriod(df: DatePeriod) {
+        if (df === periodFilter) return;
+        setPeriodFilter(df);
+        fetchLogs(filter, df);
     }
 
     if (role !== 'owner') return <Navigate to="/" replace />;
@@ -87,24 +108,36 @@ function LoginLogs() {
 
             {!loading && !error && (
                 <>
+                    <div className={styles.filterRow}>
+                        {(['all', 'today', 'week', 'month', 'year'] as DatePeriod[]).map(p => (
+                            <button
+                                key={p}
+                                className={`${styles.filterChip} ${periodFilter === p ? styles.filterChipActive : ''}`}
+                                onClick={() => applyPeriod(p)}
+                            >
+                                {PERIOD_LABELS[p]}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className={styles.statsRow}>
                         <button
                             className={`${styles.statCard} ${filter === 'all' ? styles.statCardActive : ''}`}
-                            onClick={() => applyFilter('all')}
+                            onClick={() => applySuccessFilter('all')}
                         >
                             <span className={styles.statNumber}>{stats.total}</span>
                             <span className={styles.statLabel}>סה"כ כניסות</span>
                         </button>
                         <button
                             className={`${styles.statCard} ${styles.statSuccess} ${filter === 'success' ? styles.statCardActive : ''}`}
-                            onClick={() => applyFilter('success')}
+                            onClick={() => applySuccessFilter('success')}
                         >
                             <span className={styles.statNumber}>{stats.successful}</span>
                             <span className={styles.statLabel}>כניסות מוצלחות</span>
                         </button>
                         <button
                             className={`${styles.statCard} ${styles.statFail} ${filter === 'fail' ? styles.statCardActive : ''}`}
-                            onClick={() => applyFilter('fail')}
+                            onClick={() => applySuccessFilter('fail')}
                         >
                             <span className={styles.statNumber}>{stats.failed}</span>
                             <span className={styles.statLabel}>כניסות כושלות</span>

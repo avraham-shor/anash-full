@@ -46,6 +46,42 @@
 }
 
 /* ============================================================
+   PERIOD FILTER CHIPS
+   ============================================================ */
+.filterRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filterChip {
+  padding: 6px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.filterChip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.filterChipActive {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.3);
+}
+
+/* ============================================================
    STATS
    ============================================================ */
 .statsRow {

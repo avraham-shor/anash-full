@@ -64,7 +64,26 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
         res.status(403).json({ message: 'Unauthorized' });
         return;
     }
-    const isSuccess = req.query.success;
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (req.query.success !== undefined) {
+        params.push(req.query.success === 'true');
+        conditions.push(`ul.success = $${params.length}`);
+    }
+
+    const periodSQL: Record<string, string> = {
+        today: "ul.logged_in_at >= CURRENT_DATE",
+        week:  "ul.logged_in_at >= DATE_TRUNC('week', NOW())",
+        month: "ul.logged_in_at >= DATE_TRUNC('month', NOW())",
+        year:  "ul.logged_in_at >= DATE_TRUNC('year', NOW())",
+    };
+    const period = req.query.period as string;
+    if (periodSQL[period]) conditions.push(periodSQL[period]);
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
     try {
         const result = await pool.query(`
             SELECT
@@ -78,9 +97,9 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
                 u.city
             FROM user_logins ul
             JOIN users u ON u.id = ul.user_id
-            ${isSuccess ? `WHERE ul.success = ${isSuccess}` : ''}
+            ${where}
             ORDER BY ul.logged_in_at DESC
-        `);
+        `, params);
         res.json(result.rows);
     } catch {
         res.status(500).json({ message: 'Database error' });
