@@ -104,8 +104,8 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
             .orderBy(desc(userLogins.loggedInAt));
 
         res.json(rows);
-    } catch {
-        res.status(500).json({ message: 'Database error' });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error ' + error });
     }
 };
 
