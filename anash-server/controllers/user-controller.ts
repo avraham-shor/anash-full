@@ -108,6 +108,7 @@ export const getUserByFullName = async (req: Request, res: Response): Promise<vo
 export const getUserByPhoneNumber = async (req: Request, res: Response): Promise<void> => {
     const { number, shul, city } = req.query;
     const cleanNumber = (number as string).replace(/^\+\d{1,3}|\D/g, '');
+    console.log("cleanNumber", cleanNumber);
     const p = `%${cleanNumber}%`;
 
     const phoneCondition = or(
