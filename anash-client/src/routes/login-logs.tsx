@@ -27,6 +27,8 @@ const PERIOD_LABELS: Record<DatePeriod, string> = {
     year: 'השנה',
 };
 
+const PAGE_SIZE = 20;
+
 function formatDate(iso: string) {
     return new Date(iso).toLocaleString('he-IL', {
         day: '2-digit',
@@ -44,71 +46,61 @@ function truncate(str: string | null, len = 55) {
 
 function LoginLogs() {
     const { token, role } = useAuth();
-    const [logs, setLogs] = useState<LoginLog[]>([]);
+    const [allLogs, setAllLogs] = useState<LoginLog[]>([]);
     const [stats, setStats] = useState({ total: 0, successful: 0, failed: 0 });
     const [filter, setFilter] = useState<SuccessFilter>('all');
     const [periodFilter, setPeriodFilter] = useState<DatePeriod>('all');
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
     const [error, setError] = useState('');
 
-    function buildUrl(sf: SuccessFilter, df: DatePeriod): string {
-        const p = new URLSearchParams();
-        if (sf !== 'all') p.set('success', sf === 'success' ? 'true' : 'false');
-        if (df !== 'all') p.set('period', df);
-        const qs = p.toString();
-        return qs ? `${LOGIN_LOGS_URL}?${qs}` : LOGIN_LOGS_URL;
-    }
-
-    function buildPeriodUrl(df: DatePeriod): string {
+    function buildUrl(df: DatePeriod): string {
         const p = new URLSearchParams();
         if (df !== 'all') p.set('period', df);
         const qs = p.toString();
         return qs ? `${LOGIN_LOGS_URL}?${qs}` : LOGIN_LOGS_URL;
     }
 
-    // Stats always reflect period only — never the success filter
-    function updateStats(df: DatePeriod) {
-        fetch(buildPeriodUrl(df), { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => r.json())
-            .then((data: LoginLog[]) => {
-                const successful = data.filter(l => l.success).length;
-                setStats({ total: data.length, successful, failed: data.length - successful });
-            });
-    }
-
-    function updateTable(sf: SuccessFilter, df: DatePeriod, initial = false) {
+    function fetchLogs(df: DatePeriod, initial = false) {
         if (!initial) setTableLoading(true);
-        fetch(buildUrl(sf, df), { headers: { Authorization: `Bearer ${token}` } })
+        fetch(buildUrl(df), { headers: { Authorization: `Bearer ${token}` } })
             .then(res => {
                 if (!res.ok) throw new Error();
                 return res.json();
             })
-            .then((data: LoginLog[]) => { setLogs(data); })
+            .then((data: LoginLog[]) => {
+                setAllLogs(data);
+                const successful = data.filter(l => l.success).length;
+                setStats({ total: data.length, successful, failed: data.length - successful });
+            })
             .catch(() => { if (initial) setError('שגיאה בטעינת יומן הכניסות'); })
             .finally(() => { if (initial) setLoading(false); else setTableLoading(false); });
     }
 
     useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
         setLoading(true);
-        updateStats('all');
-        updateTable('all', 'all', true);
+        fetchLogs('all', true);
     }, [token]);
 
     function applySuccessFilter(sf: SuccessFilter) {
         if (sf === filter) return;
         setFilter(sf);
-        updateTable(sf, periodFilter); // stats intentionally not touched
+        setPage(1);
     }
 
     function applyPeriod(df: DatePeriod) {
         if (df === periodFilter) return;
         setPeriodFilter(df);
-        updateStats(df);
-        updateTable(filter, df);
+        setPage(1);
+        fetchLogs(df);
     }
 
     if (role !== 'owner') return <Navigate to="/" replace />;
+
+    const filteredLogs = filter === 'all' ? allLogs : allLogs.filter(l => l.success === (filter === 'success'));
+    const totalPages = Math.ceil(filteredLogs.length / PAGE_SIZE);
+    const paginatedLogs = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     return (
         <div className={styles.page}>
@@ -165,7 +157,7 @@ function LoginLogs() {
                     <div className={styles.tableCard}>
                         {tableLoading ? (
                             <Loader />
-                        ) : logs.length === 0 ? (
+                        ) : paginatedLogs.length === 0 ? (
                             <div className={styles.centerState}>
                                 <span className={styles.emptyIcon}>📋</span>
                                 <p className={styles.stateText}>אין כניסות רשומות</p>
@@ -184,7 +176,7 @@ function LoginLogs() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {logs.map(log => (
+                                        {paginatedLogs.map(log => (
                                             <tr key={log.id}>
                                                 <td>
                                                     <span className={`${styles.badge} ${log.success ? styles.badgeSuccess : styles.badgeFail}`}>
@@ -206,6 +198,25 @@ function LoginLogs() {
                                         ))}
                                     </tbody>
                                 </table>
+                                {totalPages > 1 && (
+                                    <div className={styles.pagination}>
+                                        <button
+                                            className={styles.pageBtn}
+                                            onClick={() => setPage(p => p - 1)}
+                                            disabled={page === 1}
+                                        >
+                                            →
+                                        </button>
+                                        <span className={styles.pageInfo}>עמוד {page} מתוך {totalPages}</span>
+                                        <button
+                                            className={styles.pageBtn}
+                                            onClick={() => setPage(p => p + 1)}
+                                            disabled={page === totalPages}
+                                        >
+                                            ←
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
