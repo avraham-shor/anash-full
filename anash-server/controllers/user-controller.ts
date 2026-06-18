@@ -108,7 +108,7 @@ export const getUserByFullName = async (req: Request, res: Response): Promise<vo
 export const getUserByPhoneNumber = async (req: Request, res: Response): Promise<void> => {
     const { number, shul, city } = req.query;
     console.log("number", number);
-    const cleanNumber = (number as string).replace(/^\+\d{1,3}|\D/g, '');
+    const cleanNumber = (number as string).trim().replace(/^[+\s]?\d{1,3}/, '').replace(/\D/g, '');
     console.log("cleanNumber", cleanNumber);
     const p = `%${cleanNumber}%`;
 
