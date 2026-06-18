@@ -107,7 +107,8 @@ export const getUserByFullName = async (req: Request, res: Response): Promise<vo
 
 export const getUserByPhoneNumber = async (req: Request, res: Response): Promise<void> => {
     const { number, shul, city } = req.query;
-    const p = `%${number}%`;
+    const cleanNumber = (number as string).replace(/^\+\d{1,3}|\D/g, '');
+    const p = `%${cleanNumber}%`;
 
     const phoneCondition = or(
         like(users.homePhone, p),
