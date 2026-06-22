@@ -7,10 +7,9 @@ import { useState } from "react";
 type Props = {
     item: User;
     role: 'user' | 'admin' | 'owner';
-    token: string | null;
 };
 
-export function Card({ item, role, token }: Props) {
+export function Card({ item, role }: Props) {
     const [showEditModal, setShowEditModal] = useState(false);
     const isAdmin = role !== 'user';
 
@@ -181,7 +180,7 @@ export function Card({ item, role, token }: Props) {
                         {showEditModal ? '✕ ביטול' : '🔑  הוסף / שנה סיסמה או תפקיד'}
                     </button>
                     {showEditModal && (
-                        <EditPasswordModal user={item} show={showEditModal} token={token} onClose={() => setShowEditModal(false)} />
+                        <EditPasswordModal user={item} show={showEditModal} onClose={() => setShowEditModal(false)} />
                     )}
                 </div>}
             </div>
@@ -192,11 +191,10 @@ export function Card({ item, role, token }: Props) {
 type ModalProps = {
     user: User;
     show: boolean;
-    token: string | null;
     onClose: () => void;
 }
 
-export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
+export function EditPasswordModal({ user, show, onClose }: ModalProps) {
     const [password, setPassword] = useState('');
     const [role, setRole] = useState<string>(user.role || 'user');
     const [error, setError] = useState('');
@@ -207,7 +205,7 @@ export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
         e.preventDefault();
         setError('');
         try {
-            await updateUser(user.id, password || undefined, role || undefined, token!);
+            await updateUser(user.id, password || undefined, role || undefined);
             onClose();
         } catch {
             setError('שגיאה בשמירה, נסה שוב');
@@ -240,12 +238,13 @@ export function EditPasswordModal({ user, show, token, onClose }: ModalProps) {
     );
 }
 
-async function updateUser(userId: string, password: string | undefined, role: string | undefined, token: string) {
-    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+async function updateUser(userId: string, password: string | undefined, role: string | undefined) {
+    const headers = { 'Content-Type': 'application/json' };
     if (password) {
         const res = await fetch(`${USERS_URL}${userId}/password`, {
             method: 'PUT',
             headers,
+            credentials: 'include',
             body: JSON.stringify({ password }),
         });
         if (!res.ok) throw new Error(await res.text());
@@ -254,6 +253,7 @@ async function updateUser(userId: string, password: string | undefined, role: st
         const res = await fetch(`${USERS_URL}${userId}/role`, {
             method: 'PUT',
             headers,
+            credentials: 'include',
             body: JSON.stringify({ role }),
         });
         if (!res.ok) throw new Error(await res.text());

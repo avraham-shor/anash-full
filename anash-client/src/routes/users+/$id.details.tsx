@@ -8,12 +8,10 @@ import { Loader } from '../../components/loader.tsx';
 
 export default function UserDetails() {
   const [user, setUser] = useState<User | null>(null);
-  const { token, role } = useAuth();
+  const { role } = useAuth();
   const { id } = useParams();
   useEffect(() => {
-    fetch(`${USERS_URL}${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`${USERS_URL}${id}`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setUser(data);
@@ -21,6 +19,6 @@ export default function UserDetails() {
   }, [id]);
 
   return (
-    user ? <Card item={user} role={role} token={token} /> : <Loader />
+    user ? <Card item={user} role={role} /> : <Loader />
   );
 }

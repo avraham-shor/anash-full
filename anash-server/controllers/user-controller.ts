@@ -84,7 +84,11 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 
 export const getUserByFullName = async (req: Request, res: Response): Promise<void> => {
     const { fullname, shul, city } = req.query;
-    const names = (fullname as string).split(' ').filter(Boolean);
+    if (!fullname || typeof fullname !== 'string' || fullname.length > 100) {
+        res.status(400).json({ message: 'Invalid name' });
+        return;
+    }
+    const names = fullname.split(' ').filter(Boolean);
 
     const nameConditions = names.map(n => like(users.fullName, `%${n}%`));
     const shulCondition = like(users.synagogue, `%${shul ?? ''}%`);
@@ -107,9 +111,11 @@ export const getUserByFullName = async (req: Request, res: Response): Promise<vo
 
 export const getUserByPhoneNumber = async (req: Request, res: Response): Promise<void> => {
     const { number, shul, city } = req.query;
-    console.log("number", number);
-    const cleanNumber = (number as string).trim().replace(/^[+\s]?\d{1,3}/, '').replace(/\D/g, '');
-    console.log("cleanNumber", cleanNumber);
+    if (!number || typeof number !== 'string' || number.length > 20) {
+        res.status(400).json({ message: 'Invalid phone number' });
+        return;
+    }
+    const cleanNumber = number.trim().replace(/^[+\s]?\d{1,3}/, '').replace(/\D/g, '');
     const p = `%${cleanNumber}%`;
 
     const phoneCondition = or(
@@ -170,8 +176,8 @@ export const updateUserPassword = async (req: Request, res: Response): Promise<v
         res.status(403).json({ message: 'Unauthorized' });
         return;
     }
-    if (!password) {
-        res.status(400).json({ message: 'Password is required' });
+    if (!password || typeof password !== 'string' || password.length < 4 || password.length > 128) {
+        res.status(400).json({ message: 'Password must be between 4 and 128 characters' });
         return;
     }
     try {

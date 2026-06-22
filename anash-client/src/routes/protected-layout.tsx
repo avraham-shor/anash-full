@@ -3,27 +3,16 @@ import { Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../context/auth.tsx';
 
 export default function ProtectedLayout() {
-    const { token, logout } = useAuth();
+    const { isLoggedIn, loading } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (token) {
-            try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                if (payload.exp < Date.now() / 1000) {
-                    logout();
-                    navigate('/login', { replace: true });
-                }
-            } catch {
-                logout();
-                navigate('/login', { replace: true });
-            }
-        } else {
+        if (!loading && !isLoggedIn) {
             navigate('/login', { replace: true });
         }
-    }, [token, navigate, logout]);
+    }, [isLoggedIn, loading, navigate]);
 
-    if (!token) return null;
+    if (loading || !isLoggedIn) return null;
 
     return <Outlet />;
 }

@@ -45,7 +45,7 @@ function truncate(str: string | null, len = 55) {
 }
 
 function LoginLogs() {
-    const { token, role } = useAuth();
+    const { role } = useAuth();
     const [allLogs, setAllLogs] = useState<LoginLog[]>([]);
     const [stats, setStats] = useState({ total: 0, successful: 0, failed: 0 });
     const [filter, setFilter] = useState<SuccessFilter>('all');
@@ -64,7 +64,7 @@ function LoginLogs() {
 
     function fetchLogs(df: DatePeriod, initial = false) {
         if (!initial) setTableLoading(true);
-        fetch(buildUrl(df), { headers: { Authorization: `Bearer ${token}` } })
+        fetch(buildUrl(df), { credentials: 'include' })
             .then(res => {
                 if (!res.ok) throw new Error();
                 return res.json();
@@ -81,7 +81,7 @@ function LoginLogs() {
     useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
         setLoading(true);
         fetchLogs('all', true);
-    }, [token]);
+    }, []);
 
     function applySuccessFilter(sf: SuccessFilter) {
         if (sf === filter) return;

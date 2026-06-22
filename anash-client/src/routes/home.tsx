@@ -25,7 +25,7 @@ function Home() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
-    const { token, role } = useAuth();
+    const { role } = useAuth();
 
     const searchType = (searchParams.get('type') ?? '') as SearchType;
     const synagogue = searchParams.get('shul') ?? '';
@@ -34,7 +34,6 @@ function Home() {
     const shulURL = USERS_URL + 'search/place';
     const phoneURL = USERS_URL + 'search/phone';
     const nameURL = USERS_URL + 'search/name';
-    const authHeaders = { Authorization: `Bearer ${token}` };
 
     useEffect(() => {
         if (searchParams.size === 0) return;
@@ -51,7 +50,7 @@ function Home() {
         } else {
             url = `${shulURL}?shul=${shul}&city=${cty}`;
         }
-        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(url, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,7 +84,8 @@ function Home() {
         try {
             const res = await fetch(CHANGE_PASSWORD_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ oldPassword, password: newPassword }),
             });
             if (!res.ok) {
@@ -104,7 +104,7 @@ function Home() {
     function filterByPhone(number: string, currentSynagogue = synagogue, currentCity = city) {
         setSearchParams(buildParams(number, 'phone', currentSynagogue, currentCity));
         setLoading(true);
-        fetch(`${phoneURL}?number=${number}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
+        fetch(`${phoneURL}?number=${number}&shul=${currentSynagogue}&city=${currentCity}`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     }
@@ -112,7 +112,7 @@ function Home() {
     function filterByName(name: string, currentSynagogue = synagogue, currentCity = city) {
         setSearchParams(buildParams(name, 'name', currentSynagogue, currentCity));
         setLoading(true);
-        fetch(`${nameURL}?fullname=${name}&shul=${currentSynagogue}&city=${currentCity}`, { headers: authHeaders })
+        fetch(`${nameURL}?fullname=${name}&shul=${currentSynagogue}&city=${currentCity}`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     }
@@ -120,7 +120,7 @@ function Home() {
     function setAllItems() {
         setSearchParams(buildParams('', 'place', synagogue, city));
         setLoading(true);
-        fetch(`${shulURL}?shul=${synagogue}&city=${city}`, { headers: authHeaders })
+        fetch(`${shulURL}?shul=${synagogue}&city=${city}`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
     }
@@ -133,7 +133,7 @@ function Home() {
         } else if (syn || cty) {
             setSearchParams(buildParams('', 'place', syn, cty));
             setLoading(true);
-            fetch(`${shulURL}?shul=${syn}&city=${cty}`, { headers: authHeaders })
+            fetch(`${shulURL}?shul=${syn}&city=${cty}`, { credentials: 'include' })
                 .then(res => res.json())
                 .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
         }

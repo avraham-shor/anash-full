@@ -52,12 +52,6 @@ db.serialize(() => {
   )`);
 });
 
-// for test - update password for user with email_1 [EMAIL_ADDRESS] to 1234
-async function updatePassword() {
-    db.run(`UPDATE users SET password = ? WHERE email_1 = ?`, ["1234", "ayshor123@gmail.com"]);
-}
-
-updatePassword();
 
 // add column password
 async function addPasswordColumn() {

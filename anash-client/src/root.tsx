@@ -43,7 +43,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function AppHeader() {
-  const { token, logout, name } = useAuth();
+  const { isLoggedIn, logout, name } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -52,8 +52,8 @@ function AppHeader() {
 
   if (isLoginPage) return null;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login', { replace: true });
   };
 
@@ -73,7 +73,7 @@ function AppHeader() {
         </div>
 
         <div className={styles.headerEnd}>
-          {token && (
+          {isLoggedIn && (
             <>
               {name && <span className={styles.headerUser}>שלום {name}</span>}
               <button onClick={handleLogout} className={styles.btnGhost}>

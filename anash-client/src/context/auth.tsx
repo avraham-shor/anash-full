@@ -1,71 +1,64 @@
-import { createContext, useContext, useState } from 'react';
-import { AUTH_URL } from '../config';
+import { createContext, useContext, useState, useEffect } from 'react';
+
+interface UserProfile {
+    id: string;
+    name: string;
+    role: 'user' | 'admin' | 'owner';
+}
 
 interface AuthContextType {
-    token: string | null;
+    isLoggedIn: boolean;
     id: string;
     role: 'user' | 'admin' | 'owner';
     name: string;
+    loading: boolean;
     login: (phone: string, password?: string) => Promise<void>;
-    logout: () => void;
-}
-
-interface JwtTokenPayload {
-    id?: string;
-    name?: string;
-    role?: 'user' | 'admin' | 'owner';
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function decodePayload(token: string | null): JwtTokenPayload {
-    if (!token) return {};
-    try {
-        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-        const json = decodeURIComponent(
-            atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-        );
-        return JSON.parse(json);
-    } catch {
-        return {};
-    }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [token, setToken] = useState<string | null>(() =>
-        typeof window !== 'undefined' ? localStorage.getItem('anash_token') : null
-    );
+    const [user, setUser] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch('/api/auth/me', { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => setUser(data))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
 
     const login = async (phone: string, password?: string) => {
         const body: Record<string, string> = { phone };
         if (password) body.password = password;
 
-        const res = await fetch(AUTH_URL, {
+        const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(body),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'שגיאה בהתחברות');
-        localStorage.setItem('anash_token', data.token);
-        setToken(data.token);
+        setUser(data.user);
     };
 
-    const logout = () => {
-        localStorage.removeItem('anash_token');
-        setToken(null);
+    const logout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+        setUser(null);
     };
-
-    const decodedToken = decodePayload(token);
 
     return (
         <AuthContext.Provider value={{
-            token,
-            id: decodedToken.id || '',
-            role: (decodedToken.role || 'user') as 'user' | 'admin' | 'owner',
-            name: (decodedToken.name || ''),
+            isLoggedIn: !!user,
+            id: user?.id || '',
+            role: (user?.role || 'user') as 'user' | 'admin' | 'owner',
+            name: user?.name || '',
+            loading,
             login,
-            logout
+            logout,
         }}>
             {children}
         </AuthContext.Provider>

@@ -8,28 +8,21 @@ import { eq, or, and, gte, desc, sql } from 'drizzle-orm';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 
+function setAuthCookie(res: Response, token: string) {
+    res.cookie('anash_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 8 * 60 * 60 * 1000,
+    });
+}
+
 export const changeOwnPassword = async (req: Request, res: Response): Promise<void> => {
     const { oldPassword, password } = req.body;
-    console.log('change own password', oldPassword, password);
+    const { id: userId, role } = (req as AuthRequest).user as JwtParams;
 
-    const header = req.headers.authorization;
-
-    if (!header) {
-        res.status(401).json({ message: 'Unauthorized' });
-        return;
-    }
-
-    const token = header.split(' ')[1];
-    let userId: string;
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtParams;
-        if (decoded.role === 'user') {
-            res.status(403).json({ message: 'Unauthorized' });
-            return;
-        }
-        userId = String(decoded.id);
-    } catch {
-        res.status(401).json({ message: 'Unauthorized' });
+    if (role === 'user') {
+        res.status(403).json({ message: 'Unauthorized' });
         return;
     }
 
@@ -42,24 +35,28 @@ export const changeOwnPassword = async (req: Request, res: Response): Promise<vo
         const [row] = await db
             .select({ password: users.password })
             .from(users)
-            .where(eq(users.id, userId));
+            .where(eq(users.id, String(userId)));
 
         const currentHash = row?.password;
-        console.log('currentHash', currentHash);
 
         if (!currentHash) {
             res.status(404).json({ message: 'User not found' });
             return;
         }
 
-        const isValid = oldPassword === currentHash || await bcrypt.compare(oldPassword, currentHash);
+        if (!currentHash.startsWith('$2')) {
+            res.status(401).json({ message: 'חשבון זה אינו תומך בשינוי סיסמה' });
+            return;
+        }
+
+        const isValid = await bcrypt.compare(oldPassword, currentHash);
         if (!isValid) {
             res.status(401).json({ message: 'הסיסמה הנוכחית שגויה' });
             return;
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, String(userId)));
 
         res.json({ message: 'הסיסמה עודכנה בהצלחה' });
     } catch {
@@ -109,6 +106,20 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
     }
 };
 
+export const logout = (_req: Request, res: Response): void => {
+    res.clearCookie('anash_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+    });
+    res.json({ message: 'Logged out' });
+};
+
+export const getMe = (req: Request, res: Response): void => {
+    const { id, name, role } = (req as AuthRequest).user as JwtParams;
+    res.json({ id, name, role });
+};
+
 export const login = async (req: Request, res: Response): Promise<void> => {
     const { phone, password } = req.body;
 
@@ -152,13 +163,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 role: 'user',
             } as JwtParams, secret, { expiresIn: '8h' });
             await logLogin(true);
-            res.json({ token });
+            setAuthCookie(res, token);
+            res.json({ user: { id: row.id, name: row.fullName, role: 'user' } });
             return;
         }
 
-        const isMatch = row.password?.startsWith('$2')
-            ? await bcrypt.compare(password, row.password)
-            : row.password === password;
+        if (!row.password?.startsWith('$2')) {
+            await logLogin(false);
+            res.status(401).json({ message: 'סיסמה שגויה' });
+            return;
+        }
+
+        const isMatch = await bcrypt.compare(password, row.password);
 
         if (!isMatch) {
             await logLogin(false);
@@ -166,14 +182,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        const role = row.role || 'user';
         const token = jwt.sign({
             id: row.id,
             email: row.email1,
             name: row.fullName,
-            role: row.role || 'user',
+            role,
         } as JwtParams, secret, { expiresIn: '8h' });
         await logLogin(true);
-        res.json({ token });
+        setAuthCookie(res, token);
+        res.json({ user: { id: row.id, name: row.fullName, role } });
 
     } catch {
         res.status(500).json({ message: 'Database error' });

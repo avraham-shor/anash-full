@@ -3,6 +3,7 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 import cors from 'cors';
+import helmet from 'helmet';
 import 'dotenv/config';
 
 import indexRouter from './routes/index.ts';
@@ -17,7 +18,13 @@ const app = express();
 app.set('views', path.join(process.cwd(), 'views'));
 app.set('view engine', 'pug');
 
-app.use(cors());
+app.use(helmet({ contentSecurityPolicy: false }));
+
+const corsOrigin = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : process.env.NODE_ENV !== 'production';
+app.use(cors({ origin: corsOrigin, credentials: true }));
+
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
