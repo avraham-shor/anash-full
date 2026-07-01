@@ -1,21 +1,17 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Railway has no IPv6 egress; prefer IPv4 to avoid ENETUNREACH on Gmail SMTP
+dns.setDefaultResultOrder('ipv4first');
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 587),
+    host:   process.env.SMTP_HOST,
+    port:   Number(process.env.SMTP_PORT ?? 587),
     secure: process.env.SMTP_SECURE === 'true',
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
-console.log("SMTP_HOST", process.env.SMTP_HOST);
-console.log("SMTP_USER", process.env.SMTP_USER);
-console.log("PASS", process.env.SMTP_PASS);
-
-
-
 
 export async function sendOtpEmail(to: string, code: string): Promise<void> {
-    console.log("to", to);
-    console.log("code", code);
     await transporter.sendMail({
         from: process.env.SMTP_FROM,
         to,
