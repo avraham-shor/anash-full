@@ -1,0 +1,27 @@
+.editBar {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(12px, 2vw, 16px) var(--page-padding) 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  background: var(--gradient-primary);
+  color: white;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-btn);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.editBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-btn-hover);
+}

@@ -6,6 +6,7 @@ export default [
         index("routes/home.tsx"),
         route("users", "routes/users+/_layout.tsx", [
             route(":id", "routes/users+/$id.details.tsx"),
+            route(":id/edit", "routes/users+/$id.edit.tsx"),
         ]),
         route("login-logs", "routes/login-logs.tsx"),
     ]),

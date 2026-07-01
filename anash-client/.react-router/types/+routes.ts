@@ -25,12 +25,20 @@ type Pages = {
       "id": string;
     };
   };
+  "/users/:id/edit": {
+    params: {
+      "id": string;
+    };
+  };
+  "/login-logs": {
+    params: {};
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/users" | "/users/:id";
+    page: "/" | "/login" | "/users" | "/users/:id" | "/users/:id/edit" | "/login-logs";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -38,7 +46,7 @@ type RouteFiles = {
   };
   "routes/protected-layout.tsx": {
     id: "routes/protected-layout";
-    page: "/" | "/users" | "/users/:id";
+    page: "/" | "/users" | "/users/:id" | "/users/:id/edit" | "/login-logs";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -46,11 +54,19 @@ type RouteFiles = {
   };
   "routes/users+/_layout.tsx": {
     id: "routes/users+/_layout";
-    page: "/users" | "/users/:id";
+    page: "/users" | "/users/:id" | "/users/:id/edit";
   };
-  "routes/users+/$id.detailes.tsx": {
-    id: "routes/users+/$id.detailes";
+  "routes/users+/$id.details.tsx": {
+    id: "routes/users+/$id.details";
     page: "/users/:id";
+  };
+  "routes/users+/$id.edit.tsx": {
+    id: "routes/users+/$id.edit";
+    page: "/users/:id/edit";
+  };
+  "routes/login-logs.tsx": {
+    id: "routes/login-logs";
+    page: "/login-logs";
   };
 };
 
@@ -60,5 +76,7 @@ type RouteModules = {
   "routes/protected-layout": typeof import("./src/routes/protected-layout.tsx");
   "routes/home": typeof import("./src/routes/home.tsx");
   "routes/users+/_layout": typeof import("./src/routes/users+/_layout.tsx");
-  "routes/users+/$id.detailes": typeof import("./src/routes/users+/$id.detailes.tsx");
+  "routes/users+/$id.details": typeof import("./src/routes/users+/$id.details.tsx");
+  "routes/users+/$id.edit": typeof import("./src/routes/users+/$id.edit.tsx");
+  "routes/login-logs": typeof import("./src/routes/login-logs.tsx");
 };

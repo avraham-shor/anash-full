@@ -4,6 +4,7 @@ import {
     timestamp,
     real,
     bigserial,
+    serial,
     boolean,
     inet,
 } from 'drizzle-orm/pg-core';
@@ -62,5 +63,15 @@ export const userLogins = pgTable('user_logins', {
     success: boolean('success').notNull().default(true),
 });
 
+export const verificationCodes = pgTable('verification_codes', {
+    id:        serial('id').primaryKey(),
+    userId:    text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    code:      text('code').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt:    timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type UserLogin = typeof userLogins.$inferSelect;
+export type VerificationCode = typeof verificationCodes.$inferSelect;

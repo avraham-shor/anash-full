@@ -1,10 +1,11 @@
 import bcrypt from 'bcryptjs';
 import db from '../db.ts';
-import { users } from '../db/schema.ts';
-import { eq, asc, and, or, like, notInArray } from 'drizzle-orm';
+import { users, verificationCodes } from '../db/schema.ts';
+import { eq, asc, and, or, like, notInArray, gt, isNull, lt } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
+import { sendOtpEmail } from '../utils/email.ts';
 
 const minColumns = {
     id: users.id,
@@ -66,7 +67,7 @@ export const getUsers = async (_req: Request, res: Response): Promise<void> => {
 
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
     const id = String(req.params.id);
-    const { role } = (req as AuthRequest).user as JwtParams;
+    const { id: callerId, role } = (req as AuthRequest).user as JwtParams;
     const isAdmin = role === 'admin' || role === 'owner';
     try {
         if (isAdmin) {
@@ -74,7 +75,15 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
             res.json(row);
         } else {
             const [row] = await db.select(memberColumns).from(users).where(eq(users.id, id));
-            res.json(row);
+            if (callerId === id) {
+                const [{ password }] = await db
+                    .select({ password: users.password })
+                    .from(users)
+                    .where(eq(users.id, id));
+                res.json({ ...row, hasPassword: Boolean(password) });
+            } else {
+                res.json(row);
+            }
         }
     } catch (err) {
         console.error(err);
@@ -206,6 +215,143 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
     try {
         await db.update(users).set({ role: newRole }).where(eq(users.id, id));
         res.json({ message: 'Role updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const sendEditOtp = async (req: Request, res: Response): Promise<void> => {
+    const { id: userId } = (req as AuthRequest).user as JwtParams;
+    try {
+        const [user] = await db
+            .select({ email1: users.email1, password: users.password })
+            .from(users)
+            .where(eq(users.id, userId));
+
+        if (user?.password) {
+            res.status(400).json({ message: 'חשבון זה כבר מאובטח בסיסמה' });
+            return;
+        }
+        if (!user?.email1) {
+            res.status(400).json({ message: 'לא נמצאה כתובת דוא"ל בחשבון' });
+            return;
+        }
+
+        // Clean up expired codes for this user
+        await db.delete(verificationCodes).where(
+            and(eq(verificationCodes.userId, userId), lt(verificationCodes.expiresAt, new Date()))
+        );
+
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        await db.insert(verificationCodes).values({ userId, code, expiresAt });
+        await sendOtpEmail(user.email1, code);
+
+        const [local, domain] = user.email1.split('@');
+        const maskedEmail = `${local[0]}***@${domain[0]}***.${domain.split('.').pop()}`;
+        res.json({ maskedEmail });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+const ALLOWED_FIELDS = new Set([
+    'salutation', 'firstName', 'lastName', 'fatherName',
+    'wifeName', 'wifeLastName', 'wifeFatherName',
+    'idNumber', 'wifeIdNumber', 'birthDate', 'wifeBirthDate',
+    'city', 'street', 'buildingNumber', 'apartmentNumber',
+    'entranceNumber', 'neighborhood', 'synagogue',
+    'homePhone', 'husbandMobile', 'wifeMobile', 'whatsappNumber',
+    'email1', 'email2', 'isGroomOfRabbi', 'childrenAtHomeCount',
+    'hasMarriedChildren', 'husbandName', 'husbandFatherName', 'wantsToRegister',
+]);
+
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
+    const targetId = String(req.params.id);
+    const { id: callerId, role } = (req as AuthRequest).user as JwtParams;
+    const isAdminOrOwner = role === 'admin' || role === 'owner';
+
+    if (callerId !== targetId && !isAdminOrOwner) {
+        res.status(403).json({ message: 'אין הרשאה' });
+        return;
+    }
+
+    try {
+        if (!isAdminOrOwner) {
+            const [current] = await db
+                .select({ password: users.password })
+                .from(users)
+                .where(eq(users.id, targetId));
+
+            if (!current?.password) {
+                // No password on account → OTP + newPassword both required
+                const { otp, newPassword } = req.body as Record<string, string>;
+
+                if (!otp || !newPassword) {
+                    res.status(400).json({ message: 'נדרש קוד אימות וסיסמה חדשה' });
+                    return;
+                }
+                if (newPassword.length < 4 || newPassword.length > 128) {
+                    res.status(400).json({ message: 'הסיסמה חייבת להיות בין 4 ל-128 תווים' });
+                    return;
+                }
+
+                const [record] = await db
+                    .select()
+                    .from(verificationCodes)
+                    .where(and(
+                        eq(verificationCodes.userId, callerId),
+                        eq(verificationCodes.code, otp),
+                        gt(verificationCodes.expiresAt, new Date()),
+                        isNull(verificationCodes.usedAt),
+                    ))
+                    .limit(1);
+
+                if (!record) {
+                    res.status(401).json({ message: 'קוד שגוי או שפג תוקפו' });
+                    return;
+                }
+                await db
+                    .update(verificationCodes)
+                    .set({ usedAt: new Date() })
+                    .where(eq(verificationCodes.id, record.id));
+            }
+            // Password is set → JWT is sufficient, no further check needed
+        }
+
+        // Build whitelisted update payload
+        const body = req.body as Record<string, unknown>;
+        const safeFields: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(body)) {
+            if (ALLOWED_FIELDS.has(key)) safeFields[key] = (typeof val === 'string' && val !== '') ? val : null;
+        }
+
+        // Hash new password if provided
+        const newPassword = typeof body.newPassword === 'string' ? body.newPassword : undefined;
+        if (newPassword) {
+            safeFields.password = await bcrypt.hash(newPassword, 10);
+        }
+
+        // Recompute fullName search index when name fields change
+        if ('firstName' in safeFields || 'lastName' in safeFields) {
+            const [cur] = await db
+                .select({ firstName: users.firstName, lastName: users.lastName })
+                .from(users)
+                .where(eq(users.id, targetId));
+            const fn = ((safeFields.firstName ?? cur?.firstName) as string | null) ?? '';
+            const ln = ((safeFields.lastName  ?? cur?.lastName)  as string | null) ?? '';
+            safeFields.fullName = `${fn} ${ln}`.trim();
+        }
+
+        if (Object.keys(safeFields).length === 0) {
+            res.status(400).json({ message: 'אין שדות לעדכון' });
+            return;
+        }
+
+        await db.update(users).set(safeFields).where(eq(users.id, targetId));
+        res.json({ message: 'עודכן בהצלחה' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Internal server error' });
