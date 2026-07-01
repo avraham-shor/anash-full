@@ -12,7 +12,8 @@
     "start": "tsx bin/www",
     "dev": "nodemon --exec tsx bin/www",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "tsx db/migrate.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

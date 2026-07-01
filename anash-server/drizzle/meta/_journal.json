@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1782906903129,
+      "tag": "0000_clever_warlock",
+      "breakpoints": true
+    }
+  ]
+}
