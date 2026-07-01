@@ -14,6 +14,8 @@ import { verifyToken } from './middleware/auth.ts';
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // view engine setup
 app.set('views', path.join(process.cwd(), 'views'));
 app.set('view engine', 'pug');
