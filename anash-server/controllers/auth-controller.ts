@@ -156,6 +156,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const secret = process.env.JWT_SECRET!;
 
         if (!password) {
+            if (row.password) {
+                await logLogin(false);
+                res.status(401).json({ message: 'סיסמה שגויה' });
+                return;
+            }
             const token = jwt.sign({
                 id: row.id,
                 email: row.email1,
