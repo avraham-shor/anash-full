@@ -6,7 +6,11 @@ const transporter = nodemailer.createTransport({
     secure: process.env.SMTP_SECURE === 'true',
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
-console.log("transporter", transporter);
+console.log("SMTP_HOST", process.env.SMTP_HOST);
+console.log("SMTP_USER", process.env.SMTP_USER);
+console.log("PASS", process.env.SMTP_PASS);
+
+
 
 
 export async function sendOtpEmail(to: string, code: string): Promise<void> {
