@@ -14,6 +14,8 @@ console.log("PASS", process.env.SMTP_PASS);
 
 
 export async function sendOtpEmail(to: string, code: string): Promise<void> {
+    console.log("to", to);
+    console.log("code", code);
     await transporter.sendMail({
         from: process.env.SMTP_FROM,
         to,
