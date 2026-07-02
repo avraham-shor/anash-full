@@ -6,7 +6,7 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
     const t0 = Date.now();
     console.log('[Email] sending OTP to', to.replace(/(?<=.).(?=[^@]*@)/g, '*'));
     const { data, error } = await resend.emails.send({
-        from:    process.env.RESEND_FROM ?? 'Anash <onboarding@resend.dev>',
+        from:    process.env.RESEND_FROM ?? 'Anash <noreply@anash-list.com>',
         to,
         subject: 'קוד אימות לעדכון פרטים',
         text:    `קוד האימות שלך: ${code}\nתקף ל-15 דקות.`,
