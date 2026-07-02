@@ -17,6 +17,9 @@ type Pages = {
   "/login": {
     params: {};
   };
+  "/forgot-password": {
+    params: {};
+  };
   "/users": {
     params: {};
   };
@@ -38,11 +41,15 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/users" | "/users/:id" | "/users/:id/edit" | "/login-logs";
+    page: "/" | "/login" | "/forgot-password" | "/users" | "/users/:id" | "/users/:id/edit" | "/login-logs";
   };
   "routes/login.tsx": {
     id: "routes/login";
     page: "/login";
+  };
+  "routes/forgot-password.tsx": {
+    id: "routes/forgot-password";
+    page: "/forgot-password";
   };
   "routes/protected-layout.tsx": {
     id: "routes/protected-layout";
@@ -73,6 +80,7 @@ type RouteFiles = {
 type RouteModules = {
   "root": typeof import("./src/root.tsx");
   "routes/login": typeof import("./src/routes/login.tsx");
+  "routes/forgot-password": typeof import("./src/routes/forgot-password.tsx");
   "routes/protected-layout": typeof import("./src/routes/protected-layout.tsx");
   "routes/home": typeof import("./src/routes/home.tsx");
   "routes/users+/_layout": typeof import("./src/routes/users+/_layout.tsx");

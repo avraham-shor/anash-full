@@ -68,6 +68,14 @@ export default function Login() {
                         אם אין לך סיסמה — הכנס מספר סלולרי בלבד
                     </p>
 
+                    <button
+                        type="button"
+                        className={styles.forgotPasswordLink}
+                        onClick={() => navigate('/forgot-password', { state: { phone } })}
+                    >
+                        שכחתי סיסמה
+                    </button>
+
                     {error && <p className={styles.formError}>{error}</p>}
 
                     <button

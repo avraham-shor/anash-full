@@ -3,10 +3,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import db from '../db.ts';
-import { users, userLogins } from '../db/schema.ts';
-import { eq, or, and, gte, desc, sql } from 'drizzle-orm';
+import { users, userLogins, verificationCodes } from '../db/schema.ts';
+import { eq, or, and, gte, desc, sql, gt, isNull, lt } from 'drizzle-orm';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
+import { sendOtpEmail } from '../utils/email.ts';
 
 function setAuthCookie(res: Response, token: string) {
     res.cookie('anash_token', token, {
@@ -198,6 +199,109 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         setAuthCookie(res, token);
         res.json({ user: { id: row.id, name: row.fullName, role } });
 
+    } catch {
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
+export const forgotPasswordSendOtp = async (req: Request, res: Response): Promise<void> => {
+    const { phone } = req.body;
+    if (!phone) {
+        res.status(400).json({ message: 'מספר טלפון נדרש' });
+        return;
+    }
+
+    try {
+        const [row] = await db
+            .select()
+            .from(users)
+            .where(or(
+                eq(users.husbandMobile, phone),
+                eq(users.wifeMobile, phone),
+            ));
+
+        if (!row) {
+            res.status(400).json({ message: 'לא נמצא חשבון עם מספר טלפון זה' });
+            return;
+        }
+        if (!row.password) {
+            res.status(400).json({ message: 'לחשבון זה אין סיסמה מוגדרת', noPassword: true });
+            return;
+        }
+        if (!row.email1) {
+            res.status(400).json({ message: 'לא נמצאה כתובת דוא"ל בחשבון' });
+            return;
+        }
+
+        // Clean up expired codes for this user
+        await db.delete(verificationCodes).where(
+            and(eq(verificationCodes.userId, row.id), lt(verificationCodes.expiresAt, new Date()))
+        );
+
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        await db.insert(verificationCodes).values({ userId: row.id, code, expiresAt });
+        await sendOtpEmail(row.email1, code);
+
+        const [local, domain] = row.email1.split('@');
+        const maskedEmail = `${local[0]}***@${domain[0]}***.${domain.split('.').pop()}`;
+        res.json({ maskedEmail });
+    } catch {
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+    const { phone, otp, newPassword } = req.body;
+
+    if (!phone || !otp || !newPassword) {
+        res.status(400).json({ message: 'נדרשים טלפון, קוד וסיסמה חדשה' });
+        return;
+    }
+    if (newPassword.length < 4 || newPassword.length > 128) {
+        res.status(400).json({ message: 'הסיסמה חייבת להיות בין 4 ל-128 תווים' });
+        return;
+    }
+
+    try {
+        const [row] = await db
+            .select({ id: users.id, password: users.password })
+            .from(users)
+            .where(or(
+                eq(users.husbandMobile, phone),
+                eq(users.wifeMobile, phone),
+            ));
+
+        if (!row?.password) {
+            res.status(400).json({ message: 'לא נמצא חשבון עם סיסמה עבור מספר זה' });
+            return;
+        }
+
+        const [record] = await db
+            .select()
+            .from(verificationCodes)
+            .where(and(
+                eq(verificationCodes.userId, row.id),
+                eq(verificationCodes.code, otp),
+                gt(verificationCodes.expiresAt, new Date()),
+                isNull(verificationCodes.usedAt),
+            ))
+            .limit(1);
+
+        if (!record) {
+            res.status(401).json({ message: 'קוד שגוי או שפג תוקפו' });
+            return;
+        }
+
+        await db
+            .update(verificationCodes)
+            .set({ usedAt: new Date() })
+            .where(eq(verificationCodes.id, record.id));
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, row.id));
+
+        res.json({ message: 'הסיסמה אופסה בהצלחה' });
     } catch {
         res.status(500).json({ message: 'Database error' });
     }

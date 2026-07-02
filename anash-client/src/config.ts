@@ -4,3 +4,5 @@ export const USERS_URL = '/api/users/';
 export const LOGIN_LOGS_URL = '/api/auth/login-logs';
 export const SEND_OTP_URL = '/api/users/me/send-otp';
 export const UPDATE_USER_URL = '/api/users/';
+export const FORGOT_PASSWORD_SEND_OTP_URL = '/api/auth/forgot-password/send-otp';
+export const FORGOT_PASSWORD_RESET_URL = '/api/auth/forgot-password/reset';

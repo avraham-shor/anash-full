@@ -1,0 +1,1 @@
+var e=`/api/auth/change-password`,t=`/api/users/`,n=`/api/auth/login-logs`,r=`/api/users/me/send-otp`,i=`/api/users/`,a=`/api/auth/forgot-password/send-otp`,o=`/api/auth/forgot-password/reset`;export{r as a,n as i,o as n,i as o,a as r,t as s,e as t};

@@ -47,7 +47,7 @@ function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isLoginPage = location.pathname === '/login';
+  const isLoginPage = location.pathname === '/login' || location.pathname === '/forgot-password';
   const isHomePage = location.pathname === '/' || location.pathname === '';
 
   if (isLoginPage) return null;
