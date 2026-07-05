@@ -120,10 +120,11 @@ export const getUserByFullName = async (req: Request, res: Response): Promise<vo
 
 export const getUserByPhoneNumber = async (req: Request, res: Response): Promise<void> => {
     const { number, shul, city } = req.query;
-    if (!number || typeof number !== 'string' || number.length > 20) {
+    if (!number || typeof number !== 'string' || number.length > 20 || !number.match(/\d/)) {
         res.status(400).json({ message: 'Invalid phone number' });
         return;
     }
+  
     const cleanNumber = number.trim().replace(/^[+\s]?\d{1,3}/, '').replace(/\D/g, '');
     const p = `%${cleanNumber}%`;
 
