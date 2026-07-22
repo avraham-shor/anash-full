@@ -167,7 +167,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 email: row.email1,
                 name: row.fullName,
                 role: 'user',
-            } as JwtParams, secret, { expiresIn: '8h' });
+            } as JwtParams, secret, { expiresIn: '3d' });
             await logLogin(true);
             setAuthCookie(res, token);
             res.json({ user: { id: row.id, name: row.fullName, role: 'user' } });
@@ -194,7 +194,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             email: row.email1,
             name: row.fullName,
             role,
-        } as JwtParams, secret, { expiresIn: '8h' });
+        } as JwtParams, secret, { expiresIn: '3d' });
         await logLogin(true);
         setAuthCookie(res, token);
         res.json({ user: { id: row.id, name: row.fullName, role } });
