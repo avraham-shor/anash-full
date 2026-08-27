@@ -5,9 +5,11 @@ import 'dotenv/config';
 import db from '../db.ts';
 import { users, userLogins, verificationCodes } from '../db/schema.ts';
 import { eq, or, and, gte, desc, sql, gt, isNull, lt } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
+import { normalizePhone } from '../utils/phone.ts';
 
 function setAuthCookie(res: Response, token: string) {
     res.cookie('anash_token', token, {
@@ -17,6 +19,14 @@ function setAuthCookie(res: Response, token: string) {
         maxAge: 8 * 60 * 60 * 1000,
     });
 }
+
+// Some numbers are stored with separators ("053-5407761"), so both sides are stripped before comparing.
+const withoutSeparators = (column: AnyPgColumn) => sql`replace(replace(${column}, '-', ''), ' ', '')`;
+
+const matchesPhone = (phone: string) => or(
+    eq(withoutSeparators(users.husbandMobile), phone),
+    eq(withoutSeparators(users.wifeMobile), phone),
+);
 
 export const changeOwnPassword = async (req: Request, res: Response): Promise<void> => {
     const { oldPassword, password } = req.body;
@@ -122,7 +132,8 @@ export const getMe = (req: Request, res: Response): void => {
 };
 
 export const login = async (req: Request, res: Response): Promise<void> => {
-    const { phone, password } = req.body;
+    const phone = normalizePhone(req.body.phone);
+    const { password } = req.body;
 
     if (!phone) {
         res.status(400).json({ message: 'Phone is required' });
@@ -133,10 +144,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const [row] = await db
             .select()
             .from(users)
-            .where(or(
-                eq(users.husbandMobile, phone),
-                eq(users.wifeMobile, phone),
-            ));
+            .where(matchesPhone(phone));
 
         if (!row) {
             res.status(401).json({ message: 'Invalid credentials' });
@@ -205,7 +213,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const forgotPasswordSendOtp = async (req: Request, res: Response): Promise<void> => {
-    const { phone } = req.body;
+    const phone = normalizePhone(req.body.phone);
     if (!phone) {
         res.status(400).json({ message: 'מספר טלפון נדרש' });
         return;
@@ -215,10 +223,7 @@ export const forgotPasswordSendOtp = async (req: Request, res: Response): Promis
         const [row] = await db
             .select()
             .from(users)
-            .where(or(
-                eq(users.husbandMobile, phone),
-                eq(users.wifeMobile, phone),
-            ));
+            .where(matchesPhone(phone));
 
         if (!row) {
             res.status(400).json({ message: 'לא נמצא חשבון עם מספר טלפון זה' });
@@ -252,7 +257,8 @@ export const forgotPasswordSendOtp = async (req: Request, res: Response): Promis
 };
 
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
-    const { phone, otp, newPassword } = req.body;
+    const phone = normalizePhone(req.body.phone);
+    const { otp, newPassword } = req.body;
 
     if (!phone || !otp || !newPassword) {
         res.status(400).json({ message: 'נדרשים טלפון, קוד וסיסמה חדשה' });
@@ -267,10 +273,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
         const [row] = await db
             .select({ id: users.id, password: users.password })
             .from(users)
-            .where(or(
-                eq(users.husbandMobile, phone),
-                eq(users.wifeMobile, phone),
-            ));
+            .where(matchesPhone(phone));
 
         if (!row?.password) {
             res.status(400).json({ message: 'לא נמצא חשבון עם סיסמה עבור מספר זה' });
