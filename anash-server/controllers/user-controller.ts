@@ -1,4 +1,7 @@
+/* global process */
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import 'dotenv/config';
 import db from '../db.ts';
 import { users, verificationCodes } from '../db/schema.ts';
 import { eq, asc, and, or, like, notInArray, gt, isNull, lt } from 'drizzle-orm';
@@ -6,6 +9,7 @@ import type { Request, Response } from 'express';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
+import { setAuthCookie } from '../utils/auth-cookie.ts';
 
 const minColumns = {
     id: users.id,
@@ -224,6 +228,14 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
 
 export const sendEditOtp = async (req: Request, res: Response): Promise<void> => {
     const { id: userId } = (req as AuthRequest).user as JwtParams;
+
+    // A guest token names no account. Without this it reaches the query with an empty id and
+    // gets a misleading "no email on file" 400 instead of being refused outright.
+    if (!userId) {
+        res.status(403).json({ message: 'אין הרשאה' });
+        return;
+    }
+
     try {
         const [user] = await db
             .select({ email1: users.email1, password: users.password })
@@ -271,10 +283,11 @@ const ALLOWED_FIELDS = new Set([
 
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
     const targetId = String(req.params.id);
-    const { id: callerId, role } = (req as AuthRequest).user as JwtParams;
+    const { id: callerId, role, pwVerified } = (req as AuthRequest).user as JwtParams;
     const isAdminOrOwner = role === 'admin' || role === 'owner';
 
-    if (callerId !== targetId && !isAdminOrOwner) {
+    // A guest token carries an empty id and names no account, so it can never write.
+    if (!callerId || (callerId !== targetId && !isAdminOrOwner)) {
         res.status(403).json({ message: 'אין הרשאה' });
         return;
     }
@@ -318,8 +331,12 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
                     .update(verificationCodes)
                     .set({ usedAt: new Date() })
                     .where(eq(verificationCodes.id, record.id));
+            } else if (pwVerified !== true) {
+                // Password is set → the token must have proved it. A token minted from a
+                // phone number alone (or before pwVerified existed) fails closed here.
+                res.status(403).json({ message: 'נדרשת התחברות עם סיסמה כדי לערוך פרטים אלו' });
+                return;
             }
-            // Password is set → JWT is sufficient, no further check needed
         }
 
         // Build whitelisted update payload
@@ -352,6 +369,22 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
         }
 
         await db.update(users).set(safeFields).where(eq(users.id, targetId));
+
+        // The caller just put a password on their own account, but the token in their browser
+        // still says pwVerified:false -- which the gate above would now reject on their very next
+        // save. Re-issue it so the session stays usable instead of silently going read-only.
+        if (newPassword && callerId === targetId) {
+            const caller = (req as AuthRequest).user as JwtParams;
+            const token = jwt.sign({
+                id: caller.id,
+                email: caller.email,
+                name: caller.name,
+                role: caller.role,
+                pwVerified: true,
+            } as JwtParams, process.env.JWT_SECRET!, { expiresIn: '3d' });
+            setAuthCookie(res, token);
+        }
+
         res.json({ message: 'עודכן בהצלחה' });
     } catch (err) {
         console.error(err);

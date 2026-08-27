@@ -1,5 +1,6 @@
 import {
   isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
@@ -43,12 +44,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function AppHeader() {
-  const { isLoggedIn, logout, name } = useAuth();
+  const { isLoggedIn, logout, name, id } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const isLoginPage = location.pathname === '/login' || location.pathname === '/forgot-password';
   const isHomePage = location.pathname === '/' || location.pathname === '';
+
+  // Only a session that names a real member gets a profile link. The id is the signal: a guest
+  // carries an empty one. Testing the role too would strand a member whose stored role is an
+  // unrecognized value, since toRole maps anything it does not know to 'guest'.
+  const isMember = Boolean(id);
 
   if (isLoginPage) return null;
 
@@ -75,7 +81,17 @@ function AppHeader() {
         <div className={styles.headerEnd}>
           {isLoggedIn && (
             <>
-              {name && <span className={styles.headerUser}>שלום {name}</span>}
+              {isMember ? (
+                <>
+                  {name && <span className={styles.headerUser}>שלום {name}</span>}
+                  <Link to={`/users/${id}`} className={styles.btnGhost} title="הפרופיל שלי">
+                    <span aria-hidden="true">👤</span>
+                    <span className={styles.btnLabel}>הפרופיל שלי</span>
+                  </Link>
+                </>
+              ) : (
+                <span className={styles.headerGuest}>שלום אורח</span>
+              )}
               <button onClick={handleLogout} className={styles.btnGhost}>
                 יציאה
               </button>

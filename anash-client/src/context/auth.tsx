@@ -1,16 +1,33 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
+/** The session roles a token can carry. `guest` exists only here, never in the users table. */
+const ROLES = ['user', 'admin', 'owner', 'guest'] as const;
+
+export type Role = typeof ROLES[number];
+
+function isRole(value: unknown): value is Role {
+    return typeof value === 'string' && (ROLES as readonly string[]).includes(value);
+}
+
+/** Anything the server did not name explicitly falls back to the least-privileged role. */
+function toRole(value: unknown): Role {
+    return isRole(value) ? value : 'guest';
+}
+
 interface UserProfile {
     id: string;
     name: string;
-    role: 'user' | 'admin' | 'owner';
+    role: Role;
+    /** True only when the session proved the account password. */
+    pwVerified?: boolean;
 }
 
 interface AuthContextType {
     isLoggedIn: boolean;
     id: string;
-    role: 'user' | 'admin' | 'owner';
+    role: Role;
     name: string;
+    pwVerified: boolean;
     loading: boolean;
     login: (phone: string, password?: string) => Promise<void>;
     logout: () => Promise<void>;
@@ -54,8 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         <AuthContext.Provider value={{
             isLoggedIn: !!user,
             id: user?.id || '',
-            role: (user?.role || 'user') as 'user' | 'admin' | 'owner',
+            role: toRole(user?.role),
             name: user?.name || '',
+            pwVerified: user?.pwVerified === true,
             loading,
             login,
             logout,

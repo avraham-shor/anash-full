@@ -29,5 +29,8 @@ export type User = {
   idNumber: string,
   fullName: string,
   synagogue: string,
-  role: 'user' | 'admin' | 'owner'
+  /** The stored column. 'guest' is a session role only, never persisted -- see Role in context/auth.tsx. */
+  role: 'user' | 'admin' | 'owner',
+  /** Present only on the caller's own record (see getUserById on the server). */
+  hasPassword?: boolean
 }

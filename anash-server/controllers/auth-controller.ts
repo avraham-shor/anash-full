@@ -4,35 +4,34 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import db from '../db.ts';
 import { users, userLogins, verificationCodes } from '../db/schema.ts';
-import { eq, or, and, gte, desc, sql, gt, isNull, lt } from 'drizzle-orm';
+import { eq, or, and, gte, desc, asc, sql, gt, isNull, lt, inArray } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
-import { normalizePhone } from '../utils/phone.ts';
+import { normalizePhone, phoneMatchCandidates, isPlausiblePhone } from '../utils/phone.ts';
+import { setAuthCookie } from '../utils/auth-cookie.ts';
 
-function setAuthCookie(res: Response, token: string) {
-    res.cookie('anash_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 8 * 60 * 60 * 1000,
-    });
-}
+// Stored numbers carry any mix of separators ("053-540 7761", "(054)632.9221") and may or may
+// not carry a country code, so the column is reduced to digits and compared against every
+// digits-only form the submitted number could have been stored as.
+const digitsOnly = (column: AnyPgColumn) => sql`regexp_replace(${column}, '[^0-9]', '', 'g')`;
 
-// Some numbers are stored with separators ("053-5407761"), so both sides are stripped before comparing.
-const withoutSeparators = (column: AnyPgColumn) => sql`replace(replace(${column}, '-', ''), ' ', '')`;
-
-const matchesPhone = (phone: string) => or(
-    eq(withoutSeparators(users.husbandMobile), phone),
-    eq(withoutSeparators(users.wifeMobile), phone),
-);
+// Exported for auth-flow.test.ts, which renders this predicate to SQL as a regression test.
+export const matchesPhone = (phone: string) => {
+    const forms = phoneMatchCandidates(phone);
+    return or(
+        inArray(digitsOnly(users.husbandMobile), forms),
+        inArray(digitsOnly(users.wifeMobile), forms),
+    );
+};
 
 export const changeOwnPassword = async (req: Request, res: Response): Promise<void> => {
     const { oldPassword, password } = req.body;
     const { id: userId, role } = (req as AuthRequest).user as JwtParams;
 
-    if (role === 'user') {
+    // Allowlist, not a denial of 'user': a 'guest' must never fall through here.
+    if (role !== 'admin' && role !== 'owner') {
         res.status(403).json({ message: 'Unauthorized' });
         return;
     }
@@ -127,8 +126,9 @@ export const logout = (_req: Request, res: Response): void => {
 };
 
 export const getMe = (req: Request, res: Response): void => {
-    const { id, name, role } = (req as AuthRequest).user as JwtParams;
-    res.json({ id, name, role });
+    const { id, name, role, pwVerified } = (req as AuthRequest).user as JwtParams;
+    // Tokens minted before pwVerified existed carry no flag; treat them as unverified.
+    res.json({ id, name, role, pwVerified: pwVerified === true });
 };
 
 export const login = async (req: Request, res: Response): Promise<void> => {
@@ -140,14 +140,43 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         return;
     }
 
+    // normalizePhone is a formatter, not a validator: without this, "abc" would be handed a guest
+    // session and "+972abc" would collapse to the digit "0" and be matched against real rows.
+    if (!isPlausiblePhone(phone)) {
+        res.status(400).json({ message: 'מספר טלפון לא תקין' });
+        return;
+    }
+
     try {
+        // The digits-only predicate is deliberately broad, so more than one row can match.
+        // Order and limit make which account is returned deterministic instead of arbitrary.
         const [row] = await db
             .select()
             .from(users)
-            .where(matchesPhone(phone));
+            .where(matchesPhone(phone))
+            .orderBy(asc(users.id))
+            .limit(1);
 
+        const secret = process.env.JWT_SECRET!;
+
+        const issueToken = (params: JwtParams) => {
+            const token = jwt.sign(params, secret, { expiresIn: '3d' });
+            setAuthCookie(res, token);
+            res.json({
+                user: {
+                    id: params.id,
+                    name: params.name,
+                    role: params.role,
+                    pwVerified: params.pwVerified === true,
+                },
+            });
+        };
+
+        // Unknown number: admitted as a guest, which grants directory read access only.
+        // Nothing is recorded — user_logins.userId is NOT NULL with an FK to users,
+        // so a guest attempt has no row it could point at.
         if (!row) {
-            res.status(401).json({ message: 'Invalid credentials' });
+            issueToken({ id: '', name: '', role: 'guest', pwVerified: false });
             return;
         }
 
@@ -162,23 +191,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 success,
             });
 
-        const secret = process.env.JWT_SECRET!;
-
+        // Password held back: the member gets in, but capped at 'user' and never write-capable.
+        // Passwordless accounts land here too and behave exactly as they did before.
         if (!password) {
-            if (row.password) {
-                await logLogin(false);
-                res.status(401).json({ message: 'סיסמה שגויה' });
-                return;
-            }
-            const token = jwt.sign({
-                id: row.id,
-                email: row.email1,
-                name: row.fullName,
-                role: 'user',
-            } as JwtParams, secret, { expiresIn: '3d' });
             await logLogin(true);
-            setAuthCookie(res, token);
-            res.json({ user: { id: row.id, name: row.fullName, role: 'user' } });
+            issueToken({
+                id: row.id,
+                email: row.email1 ?? undefined,
+                name: row.fullName ?? '',
+                role: 'user',
+                pwVerified: false,
+            });
             return;
         }
 
@@ -196,16 +219,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        const role = row.role || 'user';
-        const token = jwt.sign({
-            id: row.id,
-            email: row.email1,
-            name: row.fullName,
-            role,
-        } as JwtParams, secret, { expiresIn: '3d' });
+        // Only a proven password unlocks the account's real role and write access.
         await logLogin(true);
-        setAuthCookie(res, token);
-        res.json({ user: { id: row.id, name: row.fullName, role } });
+        issueToken({
+            id: row.id,
+            email: row.email1 ?? undefined,
+            name: row.fullName ?? '',
+            role: (row.role as JwtParams['role']) || 'user',
+            pwVerified: true,
+        });
 
     } catch {
         res.status(500).json({ message: 'Database error' });
@@ -214,7 +236,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 export const forgotPasswordSendOtp = async (req: Request, res: Response): Promise<void> => {
     const phone = normalizePhone(req.body.phone);
-    if (!phone) {
+    if (!phone || !isPlausiblePhone(phone)) {
         res.status(400).json({ message: 'מספר טלפון נדרש' });
         return;
     }
@@ -223,7 +245,9 @@ export const forgotPasswordSendOtp = async (req: Request, res: Response): Promis
         const [row] = await db
             .select()
             .from(users)
-            .where(matchesPhone(phone));
+            .where(matchesPhone(phone))
+            .orderBy(asc(users.id))
+            .limit(1);
 
         if (!row) {
             res.status(400).json({ message: 'לא נמצא חשבון עם מספר טלפון זה' });
@@ -260,7 +284,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     const phone = normalizePhone(req.body.phone);
     const { otp, newPassword } = req.body;
 
-    if (!phone || !otp || !newPassword) {
+    if (!phone || !isPlausiblePhone(phone) || !otp || !newPassword) {
         res.status(400).json({ message: 'נדרשים טלפון, קוד וסיסמה חדשה' });
         return;
     }
@@ -273,7 +297,9 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
         const [row] = await db
             .select({ id: users.id, password: users.password })
             .from(users)
-            .where(matchesPhone(phone));
+            .where(matchesPhone(phone))
+            .orderBy(asc(users.id))
+            .limit(1);
 
         if (!row?.password) {
             res.status(400).json({ message: 'לא נמצא חשבון עם סיסמה עבור מספר זה' });

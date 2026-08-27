@@ -58,7 +58,7 @@ const SECTIONS: { title: string; fields: string[] }[] = [
 
 export default function EditUser() {
     const { id } = useParams<{ id: string }>();
-    const { id: myId, role } = useAuth();
+    const { id: myId, role, pwVerified } = useAuth();
     const navigate = useNavigate();
 
     const [user, setUser] = useState<UserWithMeta | null>(null);
@@ -74,13 +74,22 @@ export default function EditUser() {
 
     useEffect(() => {
         if (!id) return;
-        if (myId !== id && !isOwner) {
+        if (!myId || (myId !== id && !isOwner)) {
             navigate(`/users/${id}`, { replace: true });
             return;
         }
         fetch(`${USERS_URL}${id}`, { credentials: 'include' })
-            .then(r => r.json())
+            // Without the res.ok check an error body would be parsed as a record, and a rejected
+            // promise would leave `step` on 'loading' behind a Loader that never resolves.
+            .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
             .then((data: UserWithMeta) => {
+                // The account holds a password but this session never proved it — the server
+                // would reject the save, so do not offer the form at all.
+                if (data.hasPassword && !isOwner && !pwVerified) {
+                    // The details page they land on names the fix ("log in with your password").
+                    navigate(`/users/${id}`, { replace: true });
+                    return;
+                }
                 setUser(data);
                 // Pre-fill form with all current values
                 const initial: Record<string, string> = {};
@@ -94,8 +103,9 @@ export default function EditUser() {
                 } else {
                     setStep('send');
                 }
-            });
-    }, [id, myId, isOwner, navigate]);
+            })
+            .catch(() => navigate(`/users/${id}`, { replace: true }));
+    }, [id, myId, isOwner, pwVerified, navigate]);
 
     async function handleSendOtp() {
         setError('');

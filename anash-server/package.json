@@ -7,9 +7,13 @@
   "license": "ISC",
   "author": "Avraham Shor",
   "type": "module",
+  "engines": {
+    "node": ">=22.3"
+  },
   "main": "app.ts",
   "scripts": {
     "start": "tsx bin/www",
+    "test": "node --experimental-test-module-mocks --import tsx --test \"**/*.test.ts\"",
     "dev": "nodemon --exec tsx bin/www",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

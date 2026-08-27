@@ -61,9 +61,23 @@
   white-space: nowrap;
 }
 
+/* The guest indicator is the only thing naming who is signed in for a guest session, and phones
+   are the dominant surface here, so unlike .headerUser it must NOT be hidden at small widths.
+   It is short enough to fit where a member's full name would not. */
+.headerGuest {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 @media (max-width: 480px) {
   .headerUser { display: none; }
   .headerLogo { font-size: 16px; }
+  /* Collapse the profile pill to its icon so it, the logout button and the back button
+     all still fit inside headerEnd at 360px. */
+  .btnLabel { display: none; }
+  .btnGhost { padding: 8px 12px; }
 }
 
 /* ============================================================

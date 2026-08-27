@@ -3,15 +3,18 @@ import { USERS_URL } from '../config';
 import type { User } from '../models/user.ts';
 import { Icon } from "./icon.tsx";
 import { useState } from "react";
+import type { Role } from '../context/auth.tsx';
 
 type Props = {
     item: User;
-    role: 'user' | 'admin' | 'owner';
+    role: Role;
 };
 
 export function Card({ item, role }: Props) {
     const [showEditModal, setShowEditModal] = useState(false);
-    const isAdmin = role !== 'user';
+    // Allowlist: a 'guest' (or any future role) must never be read as an admin here,
+    // because the admin block below renders member PII.
+    const isAdmin = role === 'admin' || role === 'owner';
 
     const address = [
         item.street,
