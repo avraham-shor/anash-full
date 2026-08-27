@@ -62,7 +62,7 @@ async function addPasswordColumn() {
 
 
 async function fillDBWithAnash() {
-    const anash = fs.readFileSync('public/jsons/anash.json', 'utf-8');
+    const anash = fs.readFileSync('seed/anash.json', 'utf-8');
     const users = JSON.parse(anash);
 
     users.forEach(user => {

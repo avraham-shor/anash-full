@@ -1,5 +1,5 @@
 /**
- * Run once to create the table and seed data from public/jsons/anash.json.
+ * Run once to create the table and seed data from seed/anash.json.
  * Usage: node migrate-postgres.js
  * Requires DATABASE_URL in .env
  */
@@ -79,7 +79,7 @@ async function migrate() {
 
     console.log('Table created (or already exists).');
 
-    const anash = fs.readFileSync('public/jsons/anash.json', 'utf-8');
+    const anash = fs.readFileSync('seed/anash.json', 'utf-8');
     const users = JSON.parse(anash);
 
     let inserted = 0;

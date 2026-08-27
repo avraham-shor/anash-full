@@ -13,11 +13,11 @@ Single-page React application (SPA) built with React Router 7, TypeScript, and V
 |---|---|
 | Language | TypeScript (strict) |
 | UI | React 19 |
-| Routing | React Router 7 (file-based, SPA mode) |
+| Routing | React Router 7 (routes declared in `src/routes.ts`, SPA mode) |
 | Build | Vite 8 |
 | Styling | CSS Modules + global CSS variables |
-| Auth | JWT stored in `localStorage` |
-| Deploy | GitHub Pages (`gh-pages`) |
+| Auth | JWT in an httpOnly `anash_token` cookie |
+| Deploy | Vercel (`vercel.json` rewrites `/api` to Railway) |
 
 ---
 
@@ -96,7 +96,7 @@ Defined in [src/routes.ts](src/routes.ts):
 /login-logs     → routes/login-logs.tsx          (protected, owner only)
 ```
 
-`protected-layout.tsx` wraps all non-login routes. It decodes the JWT from `localStorage`, checks the `exp` claim, and redirects to `/login` if the token is missing or expired.
+`protected-layout.tsx` wraps all non-login routes. It renders nothing until `useAuth()` resolves, then redirects to `/login` if the session cookie is missing or rejected.
 
 ---
 
@@ -105,14 +105,14 @@ Defined in [src/routes.ts](src/routes.ts):
 Managed by [src/context/auth.tsx](src/context/auth.tsx).
 
 ```
-localStorage["token"]  ←→  AuthContext { token, id, name, role }
+httpOnly cookie "anash_token"  ←→  AuthContext { isLoggedIn, id, name, role }
 ```
 
-- **`login(phone, password?)`** — `POST /api/auth/login`, stores the returned JWT
-- **`logout()`** — clears `localStorage` and resets context state
-- **`useAuth()`** — hook to read `{ token, id, name, role }` from any component
+- **`login(phone, password?)`** — `POST /api/auth/login`; the server sets the `anash_token` cookie
+- **`logout()`** — `POST /api/auth/logout`; the server clears the cookie and context resets
+- **`useAuth()`** — hook to read `{ isLoggedIn, id, name, role, loading }` from any component
 
-The JWT payload (`{ id, email, name, role }`) is base64-decoded client-side — no separate `/me` call is needed.
+The token is never readable from JavaScript. On mount, `AuthProvider` calls `GET /api/auth/me` with credentials included to restore the session; every API `fetch` needs the same option.
 
 ### Roles
 
@@ -258,7 +258,7 @@ Each component has its own `.module.css` file for scoped styles.
 ## Deploy
 
 ```bash
-npm run deploy    # runs build then gh-pages -d build/client
+npm run build     # Vercel builds and deploys from the repo
 ```
 
-Publishes to the `gh-pages` branch, served via GitHub Pages.
+Served by Vercel. `vercel.json` rewrites `/api/*` to the Railway server and everything else to `index.html`.
