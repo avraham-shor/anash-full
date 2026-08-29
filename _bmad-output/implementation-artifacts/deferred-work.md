@@ -41,3 +41,23 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-guest-login-and-optional-password.md`
   summary: anash-server/Dockerfile pins node:20-bookworm-slim while package.json now declares engines node >=22.3, so the test suite cannot run inside the image that is actually deployed.
   evidence: npm test requires --experimental-test-module-mocks, which needs Node >=22.3. No .npmrc sets engine-strict, so npm install only warns and npm start still runs on Node 20 — the mismatch is silent today and surfaces only when someone tries to run the suite in the image. Distinct from the no-CI entry above, which covers the absence of a runner rather than the runtime being too old to be one. Raised in the checkpoint review of b14a09c.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
+  summary: Two bare db.select() calls pull every users column, hash included, on the hottest auth paths - auth-controller login (L154) and forgotPasswordSendOtp (L246).
+  evidence: Scoped out of the admin-read fix by explicit human decision. Neither row reaches a client, so this is over-fetching rather than a leak, but both hand the bcrypt hash and every PII column to process memory on every login and every password-reset request. The other two bare selects in the same controllers (auth-controller resetPassword, and updateUser) query verificationCodes, not users, and are not part of this.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
+  summary: getUserById never checks whether a row was found - an unknown :id gives an admin 200 with an empty body, and gives a member reading their own id a 500.
+  evidence: Both branches destructure the first element of an empty array. The admin branch res.json(undefined) answers 200 with no body, so the client treats a missing record as loaded. The own-record branch does const [{ password }] = ... which throws on the empty result and lands in the 500 handler. Pre-existing on both counts; surfaced by the adversarial review of this story, which touched the admin statement without changing this behavior.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
+  summary: GET /api/users/:id sets no Cache-Control: no-store, so member records stay cacheable by any intermediary and by the browser back/forward cache.
+  evidence: helmet in app.ts adds no cache header. Named in this specs own problem statement as part of the exposure, but out of scope for a fix that only shaped the columns. Every member record the directory serves is affected, not just the admin read.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
+  summary: anash-server/eslint.config.js declares no Node globals and enables no-unused-vars alongside the TypeScript rule, so linting a controller reports nine no-undef errors for console at baseline and the repos _-prefix convention does not apply to variables.
+  evidence: The flat config sets only argsIgnorePattern, neither varsIgnorePattern nor ignoreRestSiblings, which is why a rest-sibling binding could not be silenced by naming convention in this story (the derivation was ultimately restructured to avoid the binding, so no disable directive remains). The baseline noise also means a genuine new lint error in these files would be invisible. Note that branch chore/agents-context-refresh already carries e814dc1 fix(lint) repair both eslint configs - check whether that commit resolves this before opening new work.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
+  summary: npx tsc --noEmit fails with TS5107 on moduleResolution node10 before it type-checks anything, so there is no working type gate on the server.
+  evidence: Pre-existing tsconfig.json setting. Verifying a change requires diffing error counts against a stashed baseline rather than expecting a clean run, which is fragile and easy to skip.

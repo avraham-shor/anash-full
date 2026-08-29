@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import db from '../db.ts';
 import { users, verificationCodes } from '../db/schema.ts';
-import { eq, asc, and, or, like, notInArray, gt, isNull, lt } from 'drizzle-orm';
+import { eq, asc, and, or, like, notInArray, gt, isNull, lt, getTableColumns } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
@@ -53,6 +53,38 @@ const memberColumns = {
     email1: users.email1,
 };
 
+/**
+ * Columns that must never be read into a response that answers a client. Named explicitly rather
+ * than excluded by a rest-spread, so that a future secret (a reset token, an OTP secret) is added
+ * in one obvious place instead of silently joining the elevated view the day it is defined.
+ */
+const SECRET_USER_COLUMNS = ['password'] as const;
+
+const userColumns = getTableColumns(users);
+
+// Subtracting a name that no longer exists is a silent no-op, so a rename in db/schema.ts would
+// quietly put the value back into every elevated response. Fail at module load instead: the
+// server refuses to boot rather than booting into a leak.
+for (const name of SECRET_USER_COLUMNS) {
+    if (!(name in userColumns)) {
+        throw new Error(
+            `SECRET_USER_COLUMNS names '${name}', which is not a column on users. ` +
+            'Reconcile it with db/schema.ts -- an elevated read would otherwise expose it.',
+        );
+    }
+}
+
+/**
+ * Every `users` column except those secrets. Derived from the schema rather than hand-listed, so
+ * a column added to `db/schema.ts` reaches elevated callers with no edit here. On this read the
+ * hash is never fetched, rather than fetched and stripped.
+ */
+const adminColumns = Object.fromEntries(
+    Object.entries(userColumns).filter(
+        ([name]) => !(SECRET_USER_COLUMNS as readonly string[]).includes(name),
+    ),
+) as Omit<typeof userColumns, typeof SECRET_USER_COLUMNS[number]>;
+
 const EXCLUDED_CITIES = ['ירושלים', 'מודיעין עילית', 'ביתר עילית', 'בני ברק', 'טבריה', 'גבעת זאב'];
 
 export const getUsers = async (_req: Request, res: Response): Promise<void> => {
@@ -74,7 +106,7 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
     const isAdmin = role === 'admin' || role === 'owner';
     try {
         if (isAdmin) {
-            const [row] = await db.select().from(users).where(eq(users.id, id));
+            const [row] = await db.select(adminColumns).from(users).where(eq(users.id, id));
             res.json(row);
         } else {
             const [row] = await db.select(memberColumns).from(users).where(eq(users.id, id));
