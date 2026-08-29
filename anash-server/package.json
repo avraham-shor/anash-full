@@ -15,6 +15,7 @@
     "start": "tsx bin/www",
     "test": "node --experimental-test-module-mocks --import tsx --test \"**/*.test.ts\"",
     "dev": "nodemon --exec tsx bin/www",
+    "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:prod": "tsx db/migrate.ts"
@@ -50,6 +51,7 @@
     "@typescript-eslint/parser": "^8.60.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.4.1",
+    "globals": "^17.11.0",
     "nodemon": "^3.1.0"
   }
 }

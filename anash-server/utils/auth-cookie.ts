@@ -1,4 +1,3 @@
-/* global process */
 import type { Response } from 'express';
 
 /**
