@@ -33,3 +33,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-guest-login-and-optional-password.md`
   summary: Nothing runs the test suite automatically — the repo has no CI, and Railway and the Dockerfile deploy with npm start only.
   evidence: Pre-existing absence of any .github/workflows. The suite added by this story therefore runs only when someone types npm test by hand.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-guest-login-and-optional-password.md`
+  summary: The widened phone matching governs password reset as well as login, so where two records share a number forgotPasswordSendOtp and resetPassword can target the wrong account.
+  evidence: matchesPhone is reused verbatim by forgotPasswordSendOtp and resetPassword, and both take the first row of orderBy(asc(users.id)).limit(1). users.id is text, so that ordering is lexicographic and effectively arbitrary — the OTP is mailed to whichever row sorts first and the new password lands on that same row. Distinct from the sequential-scan entry above, which covers the cost of the match rather than which row it picks. Raised in the checkpoint review of b14a09c.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-guest-login-and-optional-password.md`
+  summary: anash-server/Dockerfile pins node:20-bookworm-slim while package.json now declares engines node >=22.3, so the test suite cannot run inside the image that is actually deployed.
+  evidence: npm test requires --experimental-test-module-mocks, which needs Node >=22.3. No .npmrc sets engine-strict, so npm install only warns and npm start still runs on Node 20 — the mismatch is silent today and surfaces only when someone tries to run the suite in the image. Distinct from the no-CI entry above, which covers the absence of a runner rather than the runtime being too old to be one. Raised in the checkpoint review of b14a09c.
