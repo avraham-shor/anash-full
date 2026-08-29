@@ -39,7 +39,7 @@ app.use('/api/users', verifyToken, usersRouter);
 app.use('*', pageNotFound);
 
 // error handler
-app.use((err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error & { status?: number }, req: Request, res: Response, _next: NextFunction) => {
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
   res.status(err.status || 500);

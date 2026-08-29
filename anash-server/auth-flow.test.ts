@@ -1,4 +1,3 @@
-/* global process */
 /**
  * Controller-level cover for the I/O & Edge-Case Matrix of
  * _bmad-output/implementation-artifacts/spec-guest-login-and-optional-password.md.
