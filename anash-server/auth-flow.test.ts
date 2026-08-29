@@ -31,7 +31,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { Request, Response } from 'express';
-import { userLogins, verificationCodes } from './db/schema.ts';
+import { getTableColumns } from 'drizzle-orm';
+import { userLogins, users, verificationCodes } from './db/schema.ts';
 
 type Row = Record<string, unknown> | undefined;
 
@@ -75,8 +76,14 @@ function builder(requested?: Record<string, unknown>) {
     const rowsForUsers = () => {
         const keys = requested ? Object.keys(requested) : null;
         const isPasswordLookup = keys !== null && keys.length === 1 && keys[0] === 'password';
-        if (isPasswordLookup) return state.passwordRow ? [state.passwordRow] : [];
-        return state.row ? [state.row] : [];
+        const row = isPasswordLookup ? state.passwordRow : state.row;
+        if (!row) return [];
+        // Project, like the real driver does. A shaped select yields ONLY the requested columns,
+        // so `!('password' in body)` is evidence about the shape rather than about the fixture; a
+        // bare select() (keys === null) still yields the whole row, exactly as the unfixed admin
+        // branch did, which is what makes that assertion fail if the fix is reverted.
+        if (keys === null) return [row];
+        return [Object.fromEntries(keys.filter(k => k in row).map(k => [k, row[k]]))];
     };
 
     const obj: Record<string, unknown> = {
@@ -406,8 +413,8 @@ test('an admin setting a password on someone else does not re-issue their own co
 });
 
 // --- Matrix row 8: guest read ------------------------------------------------------------------
-// The mock cannot project columns, so the response body proves nothing about shaping. The
-// assertions are on the column set the controller ASKS drizzle for, which is what does the work.
+// The assertions lead with the column set the controller ASKS drizzle for, which is what does the
+// work. The mock projects the fixture through that set, so the response body corroborates it.
 
 test('row 8: a guest read asks for the member columns and never the admin branch', async () => {
     reset();
@@ -433,18 +440,77 @@ test('row 8: a guest read asks for the member columns and never the admin branch
     assert.ok(!(out.body && 'hasPassword' in out.body), 'hasPassword belongs to the own-record read only');
 });
 
-test('row 8 contrast: an admin read does take the full-row branch', async () => {
-    reset();
-    state.row = { id: 'u1', fullName: 'ploni', idNumber: '000000000' };
-    const { res, out } = makeRes();
-    await getUserById(
-        req({}, { id: 'admin1', name: 'a', role: 'admin', pwVerified: true }, { id: 'u1' }),
-        res,
+// --- Matrix row 8 contrast: the elevated read ---------------------------------------------------
+// The branch used to hand drizzle a bare select(), so the whole row -- bcrypt hash included --
+// reached the browser of anyone holding an elevated role. Both elevated roles are covered: the
+// matrix row names admin OR owner, and the controller gates on `role === 'admin' || === 'owner'`.
+
+/** A row carrying the hash, so a leak has something real to surface. */
+const elevatedFixture = (id: string, role: string) => ({
+    id, fullName: 'ploni', idNumber: '000000000', wifeIdNumber: '111111111',
+    systemPhone1: '03', systemPhone2: '04', role, password: '$2a$10$hash',
+});
+
+function assertElevatedRead(out: { status: number; body: Record<string, unknown> | undefined }) {
+    assert.equal(out.status, 200);
+    assert.equal(state.selectShapes.length, 1, 'an elevated read is one query, with no hash lookup bolted on');
+
+    // Every shape in the flow, not just the first -- otherwise a second `{ password }` lookup
+    // added to this branch later would sail through the whole suite.
+    for (const [i, shape] of state.selectShapes.entries()) {
+        assert.ok(shape, `query ${i} must shape its columns, not take a bare select()`);
+        assert.ok(!Object.keys(shape).includes('password'), `query ${i} must never select the bcrypt hash`);
+    }
+
+    const selected = Object.keys(state.selectShapes[0] as Record<string, unknown>);
+    // card.tsx's admin block renders the four PII fields; `role` feeds the role selector elsewhere.
+    for (const column of ['idNumber', 'wifeIdNumber', 'systemPhone1', 'systemPhone2', 'role']) {
+        assert.ok(selected.includes(column), `an elevated read must still select ${column}`);
+    }
+    // Expressed independently of the controller's own constant, so this cross-checks it rather
+    // than restating it. Both sides track the live schema, so a new column keeps this green.
+    assert.deepEqual(
+        [...selected].sort(),
+        Object.keys(getTableColumns(users)).filter(c => c !== 'password').sort(),
+        'the elevated set must be every users column except password',
     );
 
-    assert.equal(out.status, 200);
-    assert.equal(state.selectShapes[0], undefined, 'the admin branch selects every column');
-});
+    // Real evidence, not a vacuous pass: the mock projects, and the fixture carries a hash.
+    assert.ok(out.body && !('password' in out.body), 'no password key may reach the client');
+}
+
+for (const role of ['admin', 'owner'] as const) {
+    test(`row 8 contrast: a ${role} read takes every users column except the bcrypt hash`, async () => {
+        reset();
+        state.row = elevatedFixture('u1', 'user');
+        const { res, out } = makeRes();
+        await getUserById(
+            req({}, { id: `${role}1`, name: 'a', role, pwVerified: true }, { id: 'u1' }),
+            res,
+        );
+
+        assertElevatedRead(out);
+        assert.ok(!(out.body && 'hasPassword' in out.body), 'hasPassword belongs to the own-record read only');
+    });
+
+    test(`matrix: a ${role} reading their OWN record gets the same shape and still no hasPassword`, async () => {
+        reset();
+        state.row = elevatedFixture(`${role}1`, role);
+        const { res, out } = makeRes();
+        await getUserById(
+            req({}, { id: `${role}1`, name: 'a', role, pwVerified: true }, { id: `${role}1` }),
+            res,
+        );
+
+        assertElevatedRead(out);
+        // $id.details.tsx gates editing on `user?.hasPassword === false`, so absence must stay
+        // absence here -- an elevated caller reading themselves must not start reporting it.
+        assert.ok(
+            !(out.body && 'hasPassword' in out.body),
+            'the elevated branch must not derive hasPassword, even on the caller own record',
+        );
+    });
+}
 
 test('an own-record read reports hasPassword, which the client edit gate depends on', async () => {
     reset();
