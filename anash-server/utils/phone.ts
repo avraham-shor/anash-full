@@ -55,12 +55,30 @@ export function phoneMatchCandidates(phone: string): string[] {
  * form ("0546329221") would miss every row that kept its country code.
  *
  * Only a real country code and the trunk zero are removed; digits the caller typed are never
- * dropped. Callers must reject the empty string this returns for input that holds no digits of
- * its own ("+972", "0") -- searching on it would match every row in the table.
+ * dropped. This is a pure reducer, not a validator: it can still return a short or empty needle
+ * ("00" -> "0", "97200" -> "0", "abc1" -> "1", "+972" -> ""). Callers must run `isSearchableNeedle`
+ * on the result before querying -- a short needle matches nearly every row in the table.
  */
 export function phoneSearchNeedle(phone: string): string {
     const digits = normalizePhone(phone).replace(/\D/g, '');
     return digits.startsWith('0') ? digits.slice(1) : digits;
+}
+
+/**
+ * The fewest digits a `phoneSearchNeedle` result must hold before a directory search may run on
+ * it. Below this, a `LIKE '%<needle>%'` over 6 phone columns returns close to every member record
+ * -- "00" and "97200" both reduce to the single digit "0", and "abc1" reduces to "1". Exported so
+ * the controller guard, the SQL backstop and the error text all move together when it changes.
+ */
+export const PHONE_SEARCH_MIN_DIGITS = 3;
+
+/**
+ * The validator-beside-formatter counterpart to `phoneSearchNeedle`, in the same split
+ * `normalizePhone`/`isPlausiblePhone` already uses: the reducer stays pure, this predicate is the
+ * one check every caller must run on its result before running a phone search.
+ */
+export function isSearchableNeedle(needle: string): boolean {
+    return needle.length >= PHONE_SEARCH_MIN_DIGITS;
 }
 
 /**

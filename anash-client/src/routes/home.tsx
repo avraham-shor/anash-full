@@ -25,6 +25,7 @@ function Home() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
+    const [phoneSearchError, setPhoneSearchError] = useState('');
     const { role } = useAuth();
 
     const searchType = (searchParams.get('type') ?? '') as SearchType;
@@ -35,6 +36,37 @@ function Home() {
     const phoneURL = USERS_URL + 'search/phone';
     const nameURL = USERS_URL + 'search/name';
 
+    // Phone search alone can be rejected with a 400 (see spec-phone-search-short-needle-leak.md)
+    // -- for a too-short term, but also for no digits at all or an over-long input, and other
+    // non-2xx statuses are possible too. The message below covers any rejection without asserting
+    // a specific cause. Other searches never return a non-ok response for user input, so only
+    // this path needs to distinguish "no results" from "request refused".
+    function handlePhoneSearchResponse(res: Response) {
+        if (!res.ok) {
+            setItems([]);
+            setPhoneSearchError('לא ניתן לבצע חיפוש עם המספר שהוזן, נסה מספר אחר');
+            setHasSearched(true);
+            setLoading(false);
+            return;
+        }
+        // Returned so a parse failure here also reaches the .catch() on the fetch chain below,
+        // instead of rejecting an inner promise nothing observes.
+        return res.json().then(data => {
+            setItems(data);
+            setPhoneSearchError('');
+            setHasSearched(true);
+            setLoading(false);
+        });
+    }
+
+    // A rejected fetch (offline, DNS failure) or a res.json() parse failure would otherwise leave
+    // loading stuck true forever with no message -- this is the fallback for both.
+    function handlePhoneSearchNetworkError() {
+        setPhoneSearchError('אירעה שגיאה בחיפוש, נסה שוב');
+        setHasSearched(true);
+        setLoading(false);
+    }
+
     useEffect(() => {
         if (searchParams.size === 0) return;
         const q = searchParams.get('q') ?? '';
@@ -42,14 +74,17 @@ function Home() {
         const shul = searchParams.get('shul') ?? '';
         const cty = searchParams.get('city') ?? '';
         setLoading(true);
-        let url: string;
         if (type === 'phone') {
-            url = `${phoneURL}?number=${q}&shul=${shul}&city=${cty}`;
-        } else if (type === 'name') {
-            url = `${nameURL}?fullname=${q}&shul=${shul}&city=${cty}`;
-        } else {
-            url = `${shulURL}?shul=${shul}&city=${cty}`;
+            setPhoneSearchError('');
+            fetch(`${phoneURL}?number=${q}&shul=${shul}&city=${cty}`, { credentials: 'include' })
+                .then(handlePhoneSearchResponse)
+                .catch(handlePhoneSearchNetworkError);
+            return;
         }
+        setPhoneSearchError('');
+        const url = type === 'name'
+            ? `${nameURL}?fullname=${q}&shul=${shul}&city=${cty}`
+            : `${shulURL}?shul=${shul}&city=${cty}`;
         fetch(url, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
@@ -105,13 +140,14 @@ function Home() {
         setSearchParams(buildParams(number, 'phone', currentSynagogue, currentCity));
         setLoading(true);
         fetch(`${phoneURL}?number=${number}&shul=${currentSynagogue}&city=${currentCity}`, { credentials: 'include' })
-            .then(res => res.json())
-            .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
+            .then(handlePhoneSearchResponse)
+            .catch(handlePhoneSearchNetworkError);
     }
 
     function filterByName(name: string, currentSynagogue = synagogue, currentCity = city) {
         setSearchParams(buildParams(name, 'name', currentSynagogue, currentCity));
         setLoading(true);
+        setPhoneSearchError('');
         fetch(`${nameURL}?fullname=${name}&shul=${currentSynagogue}&city=${currentCity}`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
@@ -120,6 +156,7 @@ function Home() {
     function setAllItems() {
         setSearchParams(buildParams('', 'place', synagogue, city));
         setLoading(true);
+        setPhoneSearchError('');
         fetch(`${shulURL}?shul=${synagogue}&city=${city}`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
@@ -133,6 +170,7 @@ function Home() {
         } else if (syn || cty) {
             setSearchParams(buildParams('', 'place', syn, cty));
             setLoading(true);
+            setPhoneSearchError('');
             fetch(`${shulURL}?shul=${syn}&city=${cty}`, { credentials: 'include' })
                 .then(res => res.json())
                 .then(data => { setItems(data); setHasSearched(true); setLoading(false); });
@@ -150,6 +188,7 @@ function Home() {
         setItems([]);
         setInputValue('');
         setHasSearched(false);
+        setPhoneSearchError('');
     }
 
     return (
@@ -309,7 +348,14 @@ function Home() {
                 </div>
             )}
 
-            {hasSearched && !loading && items.length === 0 && (
+            {hasSearched && !loading && items.length === 0 && phoneSearchError && (
+                <div className={styles.emptyState}>
+                    <span className={styles.emptyIcon}>⚠️</span>
+                    <p className={styles.emptyText}>{phoneSearchError}</p>
+                </div>
+            )}
+
+            {hasSearched && !loading && items.length === 0 && !phoneSearchError && (
                 <div className={styles.emptyState}>
                     <span className={styles.emptyIcon}>🔍</span>
                     <p className={styles.emptyText}>לא נמצאו תוצאות עבור החיפוש</p>

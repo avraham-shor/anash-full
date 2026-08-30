@@ -9,7 +9,7 @@ import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
 import { setAuthCookie } from '../utils/auth-cookie.ts';
-import { phoneSearchNeedle } from '../utils/phone.ts';
+import { phoneSearchNeedle, isSearchableNeedle } from '../utils/phone.ts';
 import { phoneSearchCondition } from '../utils/phone-sql.ts';
 
 const minColumns = {
@@ -163,7 +163,7 @@ export const getUserByPhoneNumber = async (req: Request, res: Response): Promise
     }
   
     const needle = phoneSearchNeedle(number);
-    if (!needle) {
+    if (!isSearchableNeedle(needle)) {
         res.status(400).json({ message: 'Invalid phone number' });
         return;
     }
