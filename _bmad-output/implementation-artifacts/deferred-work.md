@@ -61,3 +61,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
   summary: npx tsc --noEmit fails with TS5107 on moduleResolution node10 before it type-checks anything, so there is no working type gate on the server.
   evidence: Pre-existing tsconfig.json setting. Verifying a change requires diffing error counts against a stashed baseline rather than expecting a clean run, which is fragile and easy to skip.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-truncates-digits.md`
+  summary: getUserByPhoneNumber has no controller-level test exercising it against a mocked db, unlike getUserById/getUsers/getUserByFullName which auth-flow.test.ts already covers.
+  evidence: Pre-existing gap, not introduced by this story -- getUsersByPlace and updateUserPassword share it too. This story's own Tasks list scoped verification to the unit level (phoneSearchNeedle, phoneSearchCondition) deliberately, but a controller-level test would be the only thing that actually proves the wiring between them -- including the empty-needle guard -- is correct end to end. Raised independently by two review layers during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-truncates-digits.md`
+  summary: phoneSearchNeedle strips only one leading zero, so an input that normalizes to multiple leading zeros (e.g. "00", "97200") reduces to the single-character needle "0" -- non-empty, so it passes the caller's !needle guard, and LIKE '%0%' then matches nearly every row in the directory.
+  evidence: Concrete trigger for the general gap this story's own spec already named and deferred ("Ask First: A minimum digit count for the term (today abc1 reduces to 1 and returns most of the directory)"). Not a regression -- the pre-fix code leaked the literal entire table on the same input ("00" reduced to an empty cleanNumber, i.e. LIKE '%%') -- but the fixed code still leaks nearly all of it. Raised by the edge-case review layer during the checkpoint review of this story.

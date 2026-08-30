@@ -3,12 +3,14 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import db from '../db.ts';
 import { users, verificationCodes } from '../db/schema.ts';
-import { eq, asc, and, or, like, notInArray, gt, isNull, lt, getTableColumns } from 'drizzle-orm';
+import { eq, asc, and, like, notInArray, gt, isNull, lt, getTableColumns } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
 import { setAuthCookie } from '../utils/auth-cookie.ts';
+import { phoneSearchNeedle } from '../utils/phone.ts';
+import { phoneSearchCondition } from '../utils/phone-sql.ts';
 
 const minColumns = {
     id: users.id,
@@ -160,17 +162,13 @@ export const getUserByPhoneNumber = async (req: Request, res: Response): Promise
         return;
     }
   
-    const cleanNumber = number.trim().replace(/^[+\s]?\d{1,3}/, '').replace(/\D/g, '');
-    const p = `%${cleanNumber}%`;
+    const needle = phoneSearchNeedle(number);
+    if (!needle) {
+        res.status(400).json({ message: 'Invalid phone number' });
+        return;
+    }
 
-    const phoneCondition = or(
-        like(users.homePhone, p),
-        like(users.husbandMobile, p),
-        like(users.wifeMobile, p),
-        like(users.whatsappNumber, p),
-        like(users.systemPhone1, p),
-        like(users.systemPhone2, p),
-    );
+    const phoneCondition = phoneSearchCondition(needle);
     const shulCondition = like(users.synagogue, `%${shul ?? ''}%`);
     const cityCondition = city === 'אחר'
         ? notInArray(users.city, EXCLUDED_CITIES)
