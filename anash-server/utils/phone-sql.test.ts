@@ -29,5 +29,12 @@ test('phoneSearchCondition binds the needle as a parameter -- it never reaches t
 });
 
 test('phoneSearchCondition refuses an empty needle instead of building the whole-directory-leaking LIKE \'%%\'', () => {
-    assert.throws(() => phoneSearchCondition(''), /non-empty needle/);
+    assert.throws(() => phoneSearchCondition(''), /at least 3 digits/);
+});
+
+test('phoneSearchCondition refuses a needle below PHONE_SEARCH_MIN_DIGITS as a backstop against the same leak', () => {
+    // "0" and "1" are exactly what "00"/"97200" and "abc1" reduce to via phoneSearchNeedle --
+    // the controller should already reject these, but the backstop must refuse them too.
+    assert.throws(() => phoneSearchCondition('0'), /at least 3 digits/);
+    assert.throws(() => phoneSearchCondition('54'), /at least 3 digits/);
 });

@@ -76,3 +76,27 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-truncates-digits.md`
   summary: phoneSearchNeedle strips only one leading zero, so an input that normalizes to multiple leading zeros (e.g. "00", "97200") reduces to the single-character needle "0" -- non-empty, so it passes the caller's !needle guard, and LIKE '%0%' then matches nearly every row in the directory.
   evidence: Concrete trigger for the general gap this story's own spec already named and deferred ("Ask First: A minimum digit count for the term (today abc1 reduces to 1 and returns most of the directory)"). Not a regression -- the pre-fix code leaked the literal entire table on the same input ("00" reduced to an empty cleanNumber, i.e. LIKE '%%') -- but the fixed code still leaks nearly all of it. Raised by the edge-case review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
+  summary: phoneSearchCondition's backstop (and isSearchableNeedle) checks only needle length, not that it is digits-only, so a caller that bypasses phoneSearchNeedle and passes a raw 3+ character string straight to phoneSearchCondition could inject LIKE wildcards (%, _).
+  evidence: Pre-existing gap inherited from before this story -- the original `if (!needle)` guard also never checked content, only truthiness. phoneSearchCondition currently has exactly one caller (the controller, which always passes phoneSearchNeedle's output), so it is not exploitable today, but the backstop's own doc comment invites future direct use. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
+  summary: None of the fetch calls in anash-client/src/routes/home.tsx for the name and place searches catch a rejected promise or a malformed JSON body, so a network failure leaves the loading spinner stuck true forever with no feedback.
+  evidence: Pre-existing across the whole file -- this story added .catch() handling only to the phone-search fetches it already owned, per its own Never clause against refactoring the name/place sites. Raised by the blind-hunter and edge-case-hunter review layers during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
+  summary: No search request in home.tsx is cancelled or sequenced (no AbortController, no request-id guard), so a slow, stale response from an earlier search can resolve after a newer search has started and overwrite its results.
+  evidence: Pre-existing race across all three search types (phone, name, place); not introduced by this story, though writing both items and the new phoneSearchError from the same response makes a stale phone-search response's effect more visible. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
+  summary: anash-client has no test runner, test script, or testing-library/vitest/jest dependency at all, so no test exists or could exist for handlePhoneSearchResponse or the new error-state rendering in home.tsx.
+  evidence: Confirmed via package.json (no test script, no test-framework dependency) and a repo-wide search for *.test.*/*.spec.* outside node_modules, which returns only the three anash-server test files. Closing this requires introducing a client test framework, a larger decision than this story's scope. Raised by the verification-gap review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
+  summary: The new phoneSearchError message in home.tsx has no aria-live/role="alert", so screen-reader users get no notification that their phone search was rejected.
+  evidence: Consistent with the rest of the app's error states (e.g. passwordError) which also lack live-region announcement -- a repo-wide accessibility gap, not specific to this story, surfaced incidentally because this story added a new error message of the same kind. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
+  summary: anash-server/AGENTS.md's phone-contract line (L23) documents only normalizePhone/phoneMatchCandidates/isPlausiblePhone -- it still doesn't mention phoneSearchNeedle (added by the prior phone-search story) or isSearchableNeedle (added by this one), even though the latter is now a mandatory pre-query check for any phone search.
+  evidence: Pre-existing gap -- phoneSearchNeedle was already undocumented there before this story. This story's own spec Code Map explicitly listed the AGENTS.md line as read-only reference, scoping the update out. Raised by the blind-hunter review layer during the checkpoint review of this story.

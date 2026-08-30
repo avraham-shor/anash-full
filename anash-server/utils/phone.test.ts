@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePhone, phoneMatchCandidates, isPlausiblePhone, phoneSearchNeedle } from './phone.ts';
+import {
+    normalizePhone, phoneMatchCandidates, isPlausiblePhone, phoneSearchNeedle,
+    isSearchableNeedle, PHONE_SEARCH_MIN_DIGITS,
+} from './phone.ts';
 
 const LOCAL = '0546329221';
 const NATIONAL = '546329221';
@@ -162,4 +165,51 @@ test('phoneSearchNeedle no longer leaks near-miss rows -- the fixed needle keeps
     const unrelatedRow = '0216329221';
     assert.ok(unrelatedRow.includes('6329221'), 'fixture must reproduce the old truncated needle to be meaningful');
     assert.ok(!unrelatedRow.replace(/\D/g, '').includes(needle), 'an unrelated stored number must not match the fixed needle');
+});
+
+// --- isSearchableNeedle: I/O & Edge-Case Matrix of spec-phone-search-short-needle-leak.md -------
+// Every needle row is driven through the real reducer, isSearchableNeedle(phoneSearchNeedle(input)),
+// so the test fails the same way a regression in either function would.
+
+test('PHONE_SEARCH_MIN_DIGITS is 3', () => {
+    assert.equal(PHONE_SEARCH_MIN_DIGITS, 3);
+});
+
+test('a full number reduces to a searchable needle', () => {
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('0546329221')), true);
+});
+
+test('a partial term of several digits is searchable', () => {
+    assert.equal(phoneSearchNeedle('054-632'), '54632');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('054-632')), true);
+});
+
+test('a needle of exactly PHONE_SEARCH_MIN_DIGITS digits sits at the limit and is searchable', () => {
+    assert.equal(phoneSearchNeedle('0546'), '546');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('0546')), true);
+});
+
+test('one digit short of the limit is rejected', () => {
+    assert.equal(phoneSearchNeedle('054'), '54');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('054')), false);
+});
+
+test('a double zero reduces to the single digit "0" and is rejected (reported leak)', () => {
+    assert.equal(phoneSearchNeedle('00'), '0');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('00')), false);
+});
+
+test('a bare country code plus zeros reduces to "0" and is rejected (reported leak)', () => {
+    assert.equal(phoneSearchNeedle('97200'), '0');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('97200')), false);
+});
+
+test('letters with a single trailing digit reduce to that one digit and are rejected', () => {
+    assert.equal(phoneSearchNeedle('abc1'), '1');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('abc1')), false);
+});
+
+test('input with no digits at all reduces to the empty string and is rejected', () => {
+    assert.equal(phoneSearchNeedle('+972'), '');
+    assert.equal(isSearchableNeedle(phoneSearchNeedle('+972')), false);
 });
