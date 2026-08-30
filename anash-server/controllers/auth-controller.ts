@@ -150,8 +150,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     try {
         // The digits-only predicate is deliberately broad, so more than one row can match.
         // Order and limit make which account is returned deterministic instead of arbitrary.
+        // The columns the branches below read. Hand-listed on purpose: a column added
+        // to db/schema.ts must not join an unauthenticated read on its own.
         const [row] = await db
-            .select()
+            .select({
+                id: users.id, email1: users.email1, fullName: users.fullName,
+                password: users.password, role: users.role,
+            })
             .from(users)
             .where(matchesPhone(phone))
             .orderBy(asc(users.id))
@@ -242,8 +247,10 @@ export const forgotPasswordSendOtp = async (req: Request, res: Response): Promis
     }
 
     try {
+        // The columns the branches below read. Hand-listed on purpose: a column added
+        // to db/schema.ts must not join an unauthenticated read on its own.
         const [row] = await db
-            .select()
+            .select({ id: users.id, email1: users.email1, password: users.password })
             .from(users)
             .where(matchesPhone(phone))
             .orderBy(asc(users.id))

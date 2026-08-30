@@ -61,3 +61,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-admin-read-leaks-password-hash.md`
   summary: npx tsc --noEmit fails with TS5107 on moduleResolution node10 before it type-checks anything, so there is no working type gate on the server.
   evidence: Pre-existing tsconfig.json setting. Verifying a change requires diffing error counts against a stashed baseline rather than expecting a clean run, which is fragile and easy to skip.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-auth-select-leaks-hash.md`
+  summary: auth-controller's resetPassword has zero test coverage in auth-flow.test.ts — it is never imported or called from that file, unlike login and forgotPasswordSendOtp which this story added coverage for.
+  evidence: Confirmed by grep — no reference to resetPassword anywhere in auth-flow.test.ts. resetPassword already uses the same shaped-select style this story applied to login/forgotPasswordSendOtp, but a regression there (e.g. reverting to a bare select(), or dropping the OTP/expiry checks) would go undetected. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-auth-select-leaks-hash.md`
+  summary: resetPassword's second query, db.select().from(verificationCodes).where(...) at L304-313, is still a bare unshaped select, unlike the users lookup a few lines above it in the same function.
+  evidence: Pre-existing, different table (verificationCodes, not users) so out of this story's scope by its own Never clause — but inconsistent with the "shape to what the branch reads" pattern the story establishes, and untested either way. Raised by the blind-hunter review layer during the checkpoint review of this story.

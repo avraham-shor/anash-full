@@ -119,7 +119,8 @@ mock.module('./db.ts', {
     },
 });
 
-const { login, getMe, changeOwnPassword, matchesPhone } = await import('./controllers/auth-controller.ts');
+const { login, getMe, changeOwnPassword, matchesPhone, forgotPasswordSendOtp } =
+    await import('./controllers/auth-controller.ts');
 const { getUserById, getUsers, getUserByFullName, updateUser, sendEditOtp } =
     await import('./controllers/user-controller.ts');
 
@@ -285,6 +286,62 @@ test('regression: a correct password still yields the real role and pwVerified',
     const token = decodeCookie(out);
     assert.equal(token.role, 'owner');
     assert.equal(token.pwVerified, true);
+});
+
+// --- Select shaping: login and forgotPasswordSendOtp must not pull every users column ----------
+// Both routes run unauthenticated. The bcrypt hash stays reachable -- bcrypt.compare and the
+// !row.password branch both need it -- but nothing else should ride along. The mock projects a
+// shaped select down to its requested keys, so a reverted bare select() hands back the whole
+// fixture and fails the "keys equal the expected set" assertion below.
+
+/** Columns neither narrowed read may select -- PII and coordinates no unauthenticated branch reads. */
+const EXCLUDED_FROM_NARROW_READS = ['idNumber', 'wifeIdNumber', 'systemPhone1', 'systemPhone2', 'coordinates'];
+
+test('login asks for exactly the columns its branches read, not the whole row', async () => {
+    reset();
+    state.row = {
+        id: 'u1', email1: 'a@b.co', fullName: 'ploni',
+        password: await bcrypt.hash('right', 4), role: 'owner',
+    };
+    const { res, out } = makeRes();
+    await login(req({ phone: LOCAL, password: 'right' }), res);
+
+    assert.equal(out.status, 200);
+    assert.equal(state.selectShapes.length, 1, 'login issues exactly one users select');
+    const shape = state.selectShapes[0];
+    assert.ok(shape, 'a reverted bare select() must fail this assertion');
+
+    const selected = Object.keys(shape).sort();
+    assert.deepEqual(selected, ['email1', 'fullName', 'id', 'password', 'role'].sort());
+
+    const allowedColumns = Object.keys(getTableColumns(users))
+        .filter(column => !EXCLUDED_FROM_NARROW_READS.includes(column));
+    for (const column of selected) {
+        assert.ok(allowedColumns.includes(column), `login must not select ${column}`);
+    }
+});
+
+test('forgotPasswordSendOtp asks for exactly the columns its branches read, not the whole row', async () => {
+    reset();
+    // email1: null routes the controller to its 400 return before sendOtpEmail, which is unmocked
+    // and builds a real Resend client -- reaching it here would throw for lack of an API key.
+    state.row = { id: 'u1', email1: null, password: '$2a$10$hash' };
+    const { res, out } = makeRes();
+    await forgotPasswordSendOtp(req({ phone: LOCAL }), res);
+
+    assert.equal(out.status, 400, 'the email1: null branch must return before sendOtpEmail');
+    assert.equal(state.selectShapes.length, 1, 'forgotPasswordSendOtp issues exactly one users select');
+    const shape = state.selectShapes[0];
+    assert.ok(shape, 'a reverted bare select() must fail this assertion');
+
+    const selected = Object.keys(shape).sort();
+    assert.deepEqual(selected, ['email1', 'id', 'password'].sort());
+
+    const allowedColumns = Object.keys(getTableColumns(users))
+        .filter(column => !EXCLUDED_FROM_NARROW_READS.includes(column));
+    for (const column of selected) {
+        assert.ok(allowedColumns.includes(column), `forgotPasswordSendOtp must not select ${column}`);
+    }
 });
 
 test('getMe reports pwVerified and treats a token minted before the flag as unverified', () => {
