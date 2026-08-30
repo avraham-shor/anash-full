@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePhone, phoneMatchCandidates, isPlausiblePhone } from './phone.ts';
+import { normalizePhone, phoneMatchCandidates, isPlausiblePhone, phoneSearchNeedle } from './phone.ts';
 
 const LOCAL = '0546329221';
 const NATIONAL = '546329221';
@@ -117,4 +117,49 @@ test('phoneMatchCandidates returns nothing for input without digits', () => {
 test('phoneMatchCandidates never repeats a form', () => {
     const candidates = phoneMatchCandidates('+972546329221');
     assert.equal(new Set(candidates).size, candidates.length);
+});
+
+// --- phoneSearchNeedle: I/O & Edge-Case Matrix of spec-phone-search-truncates-digits.md --------
+
+test('phoneSearchNeedle reduces a full local number to its national digits', () => {
+    assert.equal(phoneSearchNeedle('0546329221'), '546329221');
+});
+
+test('phoneSearchNeedle folds an international form to the same needle as the local form', () => {
+    assert.equal(phoneSearchNeedle('+972-54-632-9221'), '546329221');
+    assert.equal(phoneSearchNeedle('972546329221'), '546329221');
+    assert.equal(phoneSearchNeedle('00972546329221'), '546329221');
+});
+
+test('phoneSearchNeedle keeps every digit of a partial suffix or prefix -- it must never truncate', () => {
+    assert.equal(phoneSearchNeedle('6329221'), '6329221');
+    assert.equal(phoneSearchNeedle('054-632'), '54632');
+});
+
+test('phoneSearchNeedle returns an empty string when the input carries no digits of its own', () => {
+    assert.equal(phoneSearchNeedle('+972'), '');
+    assert.equal(phoneSearchNeedle('0'), '');
+    assert.equal(phoneSearchNeedle(''), '');
+    assert.equal(phoneSearchNeedle('   '), '');
+});
+
+test('phoneSearchNeedle, reduced to digits, is a substring of every stored shape it should match', () => {
+    const needle = phoneSearchNeedle('+972-54-632-9221');
+    const stored = [
+        '0546329221', '054-632-9221', '(054)632.9221', '546329221',
+        '972546329221', '00972546329221', '972-054-632-9221', '00972-054-632-9221',
+    ];
+    for (const value of stored) {
+        assert.ok(value.replace(/\D/g, '').includes(needle), `stored form ${value} is not matched by needle ${needle}`);
+    }
+});
+
+test('phoneSearchNeedle no longer leaks near-miss rows -- the fixed needle keeps the leading digits', () => {
+    const needle = phoneSearchNeedle('0546329221');
+    assert.equal(needle, '546329221');
+    // The old cleanup (`replace(/^[+\s]?\d{1,3}/, '')`) dropped the leading "054", producing the
+    // needle "6329221" -- which is a substring of this unrelated number, so it used to leak.
+    const unrelatedRow = '0216329221';
+    assert.ok(unrelatedRow.includes('6329221'), 'fixture must reproduce the old truncated needle to be meaningful');
+    assert.ok(!unrelatedRow.replace(/\D/g, '').includes(needle), 'an unrelated stored number must not match the fixed needle');
 });

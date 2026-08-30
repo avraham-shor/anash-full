@@ -5,17 +5,12 @@ import 'dotenv/config';
 import db from '../db.ts';
 import { users, userLogins, verificationCodes } from '../db/schema.ts';
 import { eq, or, and, gte, desc, asc, sql, gt, isNull, lt, inArray } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
 import { normalizePhone, phoneMatchCandidates, isPlausiblePhone } from '../utils/phone.ts';
+import { digitsOnly } from '../utils/phone-sql.ts';
 import { setAuthCookie } from '../utils/auth-cookie.ts';
-
-// Stored numbers carry any mix of separators ("053-540 7761", "(054)632.9221") and may or may
-// not carry a country code, so the column is reduced to digits and compared against every
-// digits-only form the submitted number could have been stored as.
-const digitsOnly = (column: AnyPgColumn) => sql`regexp_replace(${column}, '[^0-9]', '', 'g')`;
 
 // Exported for auth-flow.test.ts, which renders this predicate to SQL as a regression test.
 export const matchesPhone = (phone: string) => {

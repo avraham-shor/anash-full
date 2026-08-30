@@ -45,6 +45,25 @@ export function phoneMatchCandidates(phone: string): string[] {
 }
 
 /**
+ * The digits a directory search should look for inside a stored number:
+ * "+972-54-632-9221" / "0546329221" / "054-632" -> "546329221" / "546329221" / "54632".
+ *
+ * This is the substring counterpart to `phoneMatchCandidates`, which enumerates whole numbers for
+ * an exact match. A search term may be a fragment, so only one form can be produced -- and it is
+ * the national one, because reduced to digits EVERY stored shape contains it: "0546329221",
+ * "546329221", "972546329221", "00972546329221", "9720546329221", "009720546329221". The local
+ * form ("0546329221") would miss every row that kept its country code.
+ *
+ * Only a real country code and the trunk zero are removed; digits the caller typed are never
+ * dropped. Callers must reject the empty string this returns for input that holds no digits of
+ * its own ("+972", "0") -- searching on it would match every row in the table.
+ */
+export function phoneSearchNeedle(phone: string): string {
+    const digits = normalizePhone(phone).replace(/\D/g, '');
+    return digits.startsWith('0') ? digits.slice(1) : digits;
+}
+
+/**
  * Guards the phone columns against input that is not a number at all.
  *
  * `normalizePhone` is a formatter, not a validator: it hands back "abc" untouched, and turns
