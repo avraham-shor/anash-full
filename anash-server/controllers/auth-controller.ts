@@ -244,17 +244,24 @@ export const forgotPasswordSendOtp = async (req: Request, res: Response): Promis
     try {
         // The columns the branches below read. Hand-listed on purpose: a column added
         // to db/schema.ts must not join an unauthenticated read on its own.
-        const [row] = await db
+        // limit(2), not 1: the digits-only predicate can match more than one row (e.g. two
+        // members sharing a normalized mobile digit string). An ambiguous match must be refused,
+        // not silently resolved to whichever row sorts first -- orderBy stays for determinism,
+        // but it no longer picks a winner.
+        const rows = await db
             .select({ id: users.id, email1: users.email1, password: users.password })
             .from(users)
             .where(matchesPhone(phone))
             .orderBy(asc(users.id))
-            .limit(1);
+            .limit(2);
 
-        if (!row) {
+        if (rows.length !== 1) {
+            // Same response for 0 and 2+ matches on purpose: a distinct "ambiguous" message
+            // would let a caller enumerate which phone numbers are shared across accounts.
             res.status(400).json({ message: 'לא נמצא חשבון עם מספר טלפון זה' });
             return;
         }
+        const [row] = rows;
         if (!row.password) {
             res.status(400).json({ message: 'לחשבון זה אין סיסמה מוגדרת', noPassword: true });
             return;
@@ -296,17 +303,24 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     try {
-        const [row] = await db
+        // limit(2), not 1: an ambiguous phone match (2+ rows) must be refused, not silently
+        // resolved to whichever row sorts first -- orderBy stays for determinism, but it no
+        // longer picks a winner.
+        const rows = await db
             .select({ id: users.id, password: users.password })
             .from(users)
             .where(matchesPhone(phone))
             .orderBy(asc(users.id))
-            .limit(1);
+            .limit(2);
 
-        if (!row?.password) {
+        // Same response for "no row", "row with no password" and "2+ rows" on purpose: a
+        // distinct "ambiguous" message would let a caller enumerate which phone numbers are
+        // shared across accounts.
+        if (rows.length !== 1 || !rows[0].password) {
             res.status(400).json({ message: 'לא נמצא חשבון עם סיסמה עבור מספר זה' });
             return;
         }
+        const [row] = rows;
 
         const [record] = await db
             .select()
