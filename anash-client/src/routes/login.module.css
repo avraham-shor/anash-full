@@ -118,6 +118,18 @@
   font-weight: 500;
 }
 
+.formWarning {
+  padding: 10px 14px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-sm);
+  color: #92400E;
+  font-size: 14px;
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 .forgotPasswordLink {
   background: none;
   border: none;
@@ -195,4 +207,25 @@
 .btnPrimary:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 20px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+  width: 100%;
+}
+
+.btnGhost:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }

@@ -287,7 +287,7 @@ test('row 3/5: a held-back password still gets in, capped at user, and is logged
     assert.equal(token.pwVerified, false);
 });
 
-test('row 4: a wrong password is still 401 and is logged as a failure', async () => {
+test('row 4: a wrong password degrades to a flagged session, not a 401, and is still logged as a failure', async () => {
     reset();
     state.row = {
         id: 'u1', email1: 'a@b.co', fullName: 'ploni',
@@ -296,11 +296,37 @@ test('row 4: a wrong password is still 401 and is logged as a failure', async ()
     const { res, out } = makeRes();
     await login(req({ phone: LOCAL, password: 'wrong' }), res);
 
-    assert.equal(out.status, 401);
-    assert.equal(out.body?.message, 'סיסמה שגויה');
+    assert.equal(out.status, 200);
+    assert.deepEqual(out.body, {
+        user: { id: 'u1', name: 'ploni', role: 'user', pwVerified: false },
+        passwordIncorrect: true,
+    });
     assert.equal(state.inserts.length, 1);
     assert.equal((state.inserts[0] as { success: boolean }).success, false);
-    assert.equal(out.cookies.anash_token, undefined, 'a failed login must not set a cookie');
+
+    const token = decodeCookie(out);
+    assert.equal(token.role, 'user', 'a wrong password must not elevate the session');
+    assert.equal(token.pwVerified, false);
+    assert.equal('passwordIncorrect' in token, false, 'the hint is response-only and must never ride in the JWT');
+});
+
+test('row 4: a password submitted against a passwordless account takes the same degrade branch', async () => {
+    reset();
+    state.row = { id: 'u1', email1: 'a@b.co', fullName: 'ploni', password: null, role: 'owner' };
+    const { res, out } = makeRes();
+    await login(req({ phone: LOCAL, password: 'whatever' }), res);
+
+    assert.equal(out.status, 200);
+    assert.deepEqual(out.body, {
+        user: { id: 'u1', name: 'ploni', role: 'user', pwVerified: false },
+        passwordIncorrect: true,
+    });
+    assert.equal(state.inserts.length, 1);
+    assert.equal((state.inserts[0] as { success: boolean }).success, false, 'still logged as a failed attempt');
+
+    const token = decodeCookie(out);
+    assert.equal(token.role, 'user');
+    assert.equal(token.pwVerified, false);
 });
 
 test('regression: a correct password still yields the real role and pwVerified', async () => {

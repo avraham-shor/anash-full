@@ -9,14 +9,23 @@ export default function Login() {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [passwordIncorrect, setPasswordIncorrect] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
+        setPasswordIncorrect(false);
         setLoading(true);
         try {
-            await login(phone, password || undefined);
+            const { passwordIncorrect: wrongPassword } = await login(phone, password || undefined);
+            if (wrongPassword) {
+                // Already signed in (degraded to role 'user') -- do not auto-navigate away.
+                // Let the member see the warning and either retry here or use "שכחתי סיסמה".
+                setPasswordIncorrect(true);
+                setPassword('');
+                return;
+            }
             navigate('/', { replace: true });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'שגיאה בהתחברות');
@@ -77,6 +86,22 @@ export default function Login() {
                     </button>
 
                     {error && <p className={styles.formError}>{error}</p>}
+
+                    {passwordIncorrect && (
+                        <>
+                            <p className={styles.formWarning}>
+                                הסיסמה שגויה. אפשר לנסות שוב, לאפס סיסמה עם &quot;שכחתי סיסמה&quot;,
+                                או להמשיך לרשימה בינתיים עם הרשאות מוגבלות.
+                            </p>
+                            <button
+                                type="button"
+                                className={styles.btnGhost}
+                                onClick={() => navigate('/', { replace: true })}
+                            >
+                                המשך לרשימה
+                            </button>
+                        </>
+                    )}
 
                     <button
                         type="submit"

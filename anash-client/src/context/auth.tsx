@@ -29,7 +29,7 @@ interface AuthContextType {
     name: string;
     pwVerified: boolean;
     loading: boolean;
-    login: (phone: string, password?: string) => Promise<void>;
+    login: (phone: string, password?: string) => Promise<{ passwordIncorrect: boolean }>;
     logout: () => Promise<void>;
 }
 
@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'שגיאה בהתחברות');
         setUser(data.user);
+        return { passwordIncorrect: data.passwordIncorrect === true };
     };
 
     const logout = async () => {

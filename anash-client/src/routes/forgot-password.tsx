@@ -87,7 +87,16 @@ export default function ForgotPassword() {
             }
 
             try {
-                await login(phone, newPassword);
+                const { passwordIncorrect } = await login(phone, newPassword);
+                if (passwordIncorrect) {
+                    // The reset succeeded, but this login call resolved to a different account
+                    // than the one resetPassword just updated (e.g. an ambiguous phone match) --
+                    // its password field no longer matched, so login degraded to an unverified
+                    // session instead of throwing. Don't silently push the caller into that
+                    // session and navigate away; fall back exactly like a login failure below.
+                    navigate('/login');
+                    return;
+                }
                 navigate('/', { replace: true });
             } catch {
                 navigate('/login');

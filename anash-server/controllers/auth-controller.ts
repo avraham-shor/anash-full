@@ -159,7 +159,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const secret = process.env.JWT_SECRET!;
 
-        const issueToken = (params: JwtParams) => {
+        // `extra` is response-only scaffolding for a one-time client hint (e.g. passwordIncorrect):
+        // it is merged into the JSON body only, and must never be spread into `params`, which is
+        // what gets signed into the JWT.
+        const issueToken = (params: JwtParams, extra?: Record<string, unknown>) => {
             const token = jwt.sign(params, secret, { expiresIn: '3d' });
             setAuthCookie(res, token);
             res.json({
@@ -169,6 +172,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                     role: params.role,
                     pwVerified: params.pwVerified === true,
                 },
+                ...extra,
             });
         };
 
@@ -205,17 +209,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        if (!row.password?.startsWith('$2')) {
+        // Wrong password -- including one submitted against a passwordless account, which never
+        // starts with '$2' and so can never match -- is treated exactly like an omitted password:
+        // degrade to role 'user', pwVerified: false. This removes login's last lockout path, but
+        // the attempt is still logged as a failure (unlike the held-back-password case above) so
+        // /login-logs keeps showing that someone tried and failed on this account. The response
+        // carries passwordIncorrect: true so the client can tell the member, instead of silently
+        // succeeding.
+        if (!row.password?.startsWith('$2') || !(await bcrypt.compare(password, row.password))) {
             await logLogin(false);
-            res.status(401).json({ message: 'סיסמה שגויה' });
-            return;
-        }
-
-        const isMatch = await bcrypt.compare(password, row.password);
-
-        if (!isMatch) {
-            await logLogin(false);
-            res.status(401).json({ message: 'סיסמה שגויה' });
+            issueToken({
+                id: row.id,
+                email: row.email1 ?? undefined,
+                name: row.fullName ?? '',
+                role: 'user',
+                pwVerified: false,
+            }, { passwordIncorrect: true });
             return;
         }
 

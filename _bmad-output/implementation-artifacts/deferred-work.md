@@ -120,3 +120,23 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-otp-reset-wrong-account.md`
   summary: Neither forgotPasswordSendOtp nor resetPassword logs anything when a phone number ambiguously matches 2+ rows, so operators have no way to discover how many members are silently locked out of self-service password reset or which duplicate-phone data needs cleanup.
   evidence: The client-facing response is intentionally indistinguishable from "no match" by design, so without server-side logging the ambiguity is invisible even internally. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
+  summary: login unconditionally overwrites any existing auth cookie with a fresh token derived from the submitted phone/password, so a login-form submission that fails to prove the account password (guest, held-back, or now also wrong password) silently downgrades an already-authenticated owner/admin session on the same browser instead of leaving it untouched.
+  evidence: Pre-existing property of every non-verified branch of login (guest and held-back-password already did this before this story); this story's wrong-password branch just reaches the same unconditional issueToken call from one more input combination. Raised by the edge-case-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
+  summary: Once the one-time login warning is dismissed (or the page is reloaded), nothing in the UI ever again indicates that a session is capped at role 'user' / pwVerified:false, so a member who continues in degraded mode has no ongoing signal that they are missing permissions they think they have.
+  evidence: Pre-existing gap since the held-back-password path shipped (spec-guest-login-and-optional-password) -- this story's wrong-password branch reaches the same pwVerified:false state, it does not introduce the missing indicator. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
+  summary: The new .formWarning message in login.tsx has no aria-live/role="alert" and no focus management, so screen-reader users get no notification that a wrong password was entered.
+  evidence: Consistent with the rest of the app's error states (.formError, phoneSearchError) which also lack live-region announcement -- a repo-wide accessibility gap, not specific to this story. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
+  summary: anash-client still has no test runner, test script, or testing-library/vitest/jest dependency at all, so none of login.tsx's new passwordIncorrect state, warning banner, or skipped-navigation logic can be automated-tested.
+  evidence: Pre-existing repo-wide gap (also named in spec-phone-search-short-needle-leak's deferred items); newly relevant here because this story's only client-visible behavior change has zero test coverage as a result. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
+  summary: The wrong-password warning's copy points every case at "שכחתי סיסמה", but for a password submitted against a passwordless account that flow immediately dead-ends into forgot-password.tsx's own "אין סיסמה מוגדרת לחשבון זה" screen instead of resetting anything.
+  evidence: Not a true dead end -- that screen does redirect the member back to a phone-only login -- but it is an unnecessary extra round-trip and the warning's wording over-promises for that sub-case. Raised by the blind-hunter review layer during the checkpoint review of this story.
