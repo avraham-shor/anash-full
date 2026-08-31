@@ -100,3 +100,23 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-phone-search-short-needle-leak.md`
   summary: anash-server/AGENTS.md's phone-contract line (L23) documents only normalizePhone/phoneMatchCandidates/isPlausiblePhone -- it still doesn't mention phoneSearchNeedle (added by the prior phone-search story) or isSearchableNeedle (added by this one), even though the latter is now a mandatory pre-query check for any phone search.
   evidence: Pre-existing gap -- phoneSearchNeedle was already undocumented there before this story. This story's own spec Code Map explicitly listed the AGENTS.md line as read-only reference, scoping the update out. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-otp-reset-wrong-account.md`
+  summary: resetPassword still has no test coverage for its invalid/expired-OTP (401) branch or its input-validation 400s (missing phone/otp/newPassword, newPassword length bounds).
+  evidence: This story added resetPassword's first-ever tests (ambiguous-match refusal and the single-match success path), but these other branches sit right next to the new `rows.length !== 1 || !rows[0].password` condition and would silently pass a typo'd `&&` in place of `||` there. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-otp-reset-wrong-account.md`
+  summary: forgotPasswordSendOtp inserts the verificationCodes row before calling sendOtpEmail, so a Resend failure leaves an orphaned, unusable OTP row while the caller sees a generic "Database error" 500 that misattributes the failure.
+  evidence: Pre-existing ordering, not introduced by this story -- but this story's own utils/email.ts mock is what first makes a send-failure path cheap to simulate and test. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-otp-reset-wrong-account.md`
+  summary: login runs the identical matchesPhone(...).orderBy(asc(users.id)).limit(1) pattern this story just fixed in forgotPasswordSendOtp/resetPassword, and still silently resolves an ambiguous phone match to whichever row's id sorts first -- but login hands out a live session/JWT, arguably the more sensitive of the three call sites.
+  evidence: Explicitly out of scope for this story (its spec's Never clause preserves login's existing, previously-accepted behavior -- see the "login resolves a multi-row match deterministically, not arbitrarily" test in auth-flow.test.ts), but the review noted no tracked follow-up links the more severe variant of the same bug class anywhere. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-otp-reset-wrong-account.md`
+  summary: A member whose phone number is genuinely shared with another account sees the same "no account found" message from forgotPasswordSendOtp/resetPassword as someone who mistyped their number, with no path to recovery (e.g. contact an admin).
+  evidence: Deliberate anti-enumeration tradeoff, documented and correct as implemented in this story's Design Notes -- but a legitimately affected member has no signal to seek help. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-otp-reset-wrong-account.md`
+  summary: Neither forgotPasswordSendOtp nor resetPassword logs anything when a phone number ambiguously matches 2+ rows, so operators have no way to discover how many members are silently locked out of self-service password reset or which duplicate-phone data needs cleanup.
+  evidence: The client-facing response is intentionally indistinguishable from "no match" by design, so without server-side logging the ambiguity is invisible even internally. Raised by the blind-hunter review layer during the checkpoint review of this story.

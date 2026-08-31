@@ -38,6 +38,12 @@ type Row = Record<string, unknown> | undefined;
 const state: {
     /** Row the `users` table yields for a normal (multi-column) read. */
     row: Row;
+    /**
+     * Rows the `users` table yields for a normal (multi-column) read, when a test needs more
+     * than one -- e.g. an ambiguous phone match. Checked before `row`, so leaving this undefined
+     * (the default) yields `row`'s single-row behavior exactly as before this field existed.
+     */
+    rows: Record<string, unknown>[] | undefined;
     /** Row the `users` table yields for the `{ password }`-only lookup. */
     passwordRow: Row;
     /** Rows the `verificationCodes` table yields -- the OTP path. */
@@ -46,19 +52,23 @@ const state: {
     updates: unknown[];
     selectShapes: (Record<string, unknown> | undefined)[];
     chain: string[];
+    /** Calls to the mocked `sendOtpEmail` -- so a test can assert on an OTP email without a live Resend call. */
+    emailsSent: { to: string; code: string }[];
 } = {
-    row: undefined, passwordRow: undefined, otpRows: [],
-    inserts: [], updates: [], selectShapes: [], chain: [],
+    row: undefined, rows: undefined, passwordRow: undefined, otpRows: [],
+    inserts: [], updates: [], selectShapes: [], chain: [], emailsSent: [],
 };
 
 function reset() {
     state.row = undefined;
+    state.rows = undefined;
     state.passwordRow = undefined;
     state.otpRows = [];
     state.inserts = [];
     state.updates = [];
     state.selectShapes = [];
     state.chain = [];
+    state.emailsSent = [];
 }
 
 /**
@@ -72,17 +82,25 @@ function reset() {
 function builder(requested?: Record<string, unknown>) {
     let source: unknown[] = [];
 
+    const project = (row: Record<string, unknown>, keys: string[] | null) =>
+        keys === null ? row : Object.fromEntries(keys.filter(k => k in row).map(k => [k, row[k]]));
+
     const rowsForUsers = () => {
         const keys = requested ? Object.keys(requested) : null;
         const isPasswordLookup = keys !== null && keys.length === 1 && keys[0] === 'password';
+        // state.rows (a multi-row fixture, e.g. an ambiguous phone match) takes priority over the
+        // single-row state.row -- but never for the `{ password }`-only lookup, which no ambiguous-
+        // match test drives and which every existing single-row test still exercises via passwordRow.
+        if (!isPasswordLookup && state.rows) {
+            return state.rows.map(row => project(row, keys));
+        }
         const row = isPasswordLookup ? state.passwordRow : state.row;
         if (!row) return [];
         // Project, like the real driver does. A shaped select yields ONLY the requested columns,
         // so `!('password' in body)` is evidence about the shape rather than about the fixture; a
         // bare select() (keys === null) still yields the whole row, exactly as the unfixed admin
         // branch did, which is what makes that assertion fail if the fix is reverted.
-        if (keys === null) return [row];
-        return [Object.fromEntries(keys.filter(k => k in row).map(k => [k, row[k]]))];
+        return [project(row, keys)];
     };
 
     const obj: Record<string, unknown> = {
@@ -119,7 +137,20 @@ mock.module('./db.ts', {
     },
 });
 
-const { login, getMe, changeOwnPassword, matchesPhone, forgotPasswordSendOtp } =
+// utils/email.ts builds a real Resend client at module scope and would otherwise make a live
+// network call the moment forgotPasswordSendOtp reaches its success path. Registered here, before
+// the controller import below, for the same reason as the db.ts mock: ESM hoists static imports,
+// so only a mock.module call that runs before the dynamic `await import(...)` of the controller
+// can intercept what that controller transitively imports.
+mock.module('./utils/email.ts', {
+    namedExports: {
+        sendOtpEmail: async (to: string, code: string) => {
+            state.emailsSent.push({ to, code });
+        },
+    },
+});
+
+const { login, getMe, changeOwnPassword, matchesPhone, forgotPasswordSendOtp, resetPassword } =
     await import('./controllers/auth-controller.ts');
 const { getUserById, getUsers, getUserByFullName, updateUser, sendEditOtp } =
     await import('./controllers/user-controller.ts');
@@ -323,8 +354,10 @@ test('login asks for exactly the columns its branches read, not the whole row', 
 
 test('forgotPasswordSendOtp asks for exactly the columns its branches read, not the whole row', async () => {
     reset();
-    // email1: null routes the controller to its 400 return before sendOtpEmail, which is unmocked
-    // and builds a real Resend client -- reaching it here would throw for lack of an API key.
+    // email1: null routes the controller to its 400 return before sendOtpEmail. sendOtpEmail is
+    // mocked (see mock.module('./utils/email.ts', ...) above), so this particular choice of
+    // fixture is no longer load-bearing for safety -- kept anyway so this test still asserts only
+    // the column-shaping behavior, not the OTP-send path, which the row-1 test below covers.
     state.row = { id: 'u1', email1: null, password: '$2a$10$hash' };
     const { res, out } = makeRes();
     await forgotPasswordSendOtp(req({ phone: LOCAL }), res);
@@ -342,6 +375,118 @@ test('forgotPasswordSendOtp asks for exactly the columns its branches read, not 
     for (const column of selected) {
         assert.ok(allowedColumns.includes(column), `forgotPasswordSendOtp must not select ${column}`);
     }
+});
+
+// Matrix row 1 of spec-otp-reset-wrong-account.md: "Single match, has password + email |
+// forgotPasswordSendOtp, phone matches exactly 1 row | 200, OTP row inserted, email sent --
+// unchanged from today." Every other forgotPasswordSendOtp test in this file deliberately takes
+// an early-return branch to dodge sendOtpEmail; this is the one test that drives the actual
+// success path, made safe by the ./utils/email.ts mock above instead of a real Resend call.
+test('matrix row 1: forgotPasswordSendOtp succeeds end-to-end on a single match with password and email', async () => {
+    reset();
+    state.row = { id: 'u1', email1: 'ploni@example.co', password: '$2a$10$hash' };
+    const { res, out } = makeRes();
+    await forgotPasswordSendOtp(req({ phone: LOCAL }), res);
+
+    assert.equal(out.status, 200);
+    assert.equal(typeof out.body?.maskedEmail, 'string', 'the response must carry a masked email string');
+    assert.equal(state.inserts.length, 1, 'exactly one verificationCodes row must be inserted');
+    assert.equal(state.emailsSent.length, 1, 'exactly one OTP email must be sent');
+    assert.equal(state.emailsSent[0].to, 'ploni@example.co');
+    assert.equal(
+        state.emailsSent[0].code,
+        (state.inserts[0] as { code: string }).code,
+        'the code in the email must be the same code written to verificationCodes',
+    );
+});
+
+// --- spec-otp-reset-wrong-account: ambiguous phone matches must be refused, not resolved -------
+// matchesPhone's digits-only predicate can match more than one users row (e.g. two members whose
+// mobiles normalize to the same digits). Both endpoints used to take .limit(1) and trust whatever
+// row sorted first, which could email an OTP to -- or reset the password of -- the wrong account.
+// The fix: fetch up to 2 rows and refuse whenever the count isn't exactly 1, using the identical
+// response the endpoint already gives for zero matches, so a caller can't distinguish the two.
+
+test('forgotPasswordSendOtp refuses a 2-row phone match exactly like a 0-row match, sends no OTP', async () => {
+    reset();
+    const { res: zeroRes, out: zeroOut } = makeRes();
+    await forgotPasswordSendOtp(req({ phone: '+972-99-999-9999' }), zeroRes);
+    assert.equal(zeroOut.status, 400);
+
+    reset();
+    state.rows = [
+        { id: 'u1', email1: 'a@b.co', password: '$2a$10$hash' },
+        { id: 'u2', email1: 'c@d.co', password: '$2a$10$hash' },
+    ];
+    const { res, out } = makeRes();
+    await forgotPasswordSendOtp(req({ phone: LOCAL }), res);
+
+    assert.equal(out.status, zeroOut.status, 'ambiguous match must return the same status as no match');
+    assert.deepEqual(out.body, zeroOut.body, 'ambiguous match must return the same body as no match -- no distinct message');
+    assert.equal(state.inserts.length, 0, 'an ambiguous match must not insert a verification code');
+    assert.equal(state.emailsSent.length, 0, 'an ambiguous match must not send an OTP email');
+});
+
+test('regression: forgotPasswordSendOtp is unaffected when exactly one row matches', async () => {
+    reset();
+    // password: null routes the controller to its own 400 branch, distinct from the ambiguous-
+    // match branch above, proving the single-row path still runs its own logic unchanged.
+    state.row = { id: 'u1', email1: 'a@b.co', password: null };
+    const { res, out } = makeRes();
+    await forgotPasswordSendOtp(req({ phone: LOCAL }), res);
+
+    assert.equal(out.status, 400);
+    assert.deepEqual(out.body, { message: 'לחשבון זה אין סיסמה מוגדרת', noPassword: true });
+});
+
+test('resetPassword refuses a 2-row phone match exactly like its no-account-with-password case', async () => {
+    reset();
+    const { res: zeroRes, out: zeroOut } = makeRes();
+    await resetPassword(req({ phone: '+972-99-999-9999', otp: '123456', newPassword: 'newpass' }), zeroRes);
+    assert.equal(zeroOut.status, 400);
+
+    reset();
+    state.rows = [
+        { id: 'u1', password: '$2a$10$hash' },
+        { id: 'u2', password: '$2a$10$hash' },
+    ];
+    const { res, out } = makeRes();
+    await resetPassword(req({ phone: LOCAL, otp: '123456', newPassword: 'newpass' }), res);
+
+    assert.equal(out.status, zeroOut.status, 'ambiguous match must return the same status as no match');
+    assert.deepEqual(out.body, zeroOut.body, 'ambiguous match must return the same body as no match -- no distinct message');
+    assert.equal(state.selectShapes.length, 1, 'an ambiguous match must not read verificationCodes');
+    assert.equal(state.updates.length, 0, 'an ambiguous match must not update a password');
+});
+
+// Matrix row 5 of spec-otp-reset-wrong-account.md: "Single match, no password on account |
+// resetPassword, phone matches exactly 1 row, row.password null | existing 400 'לחשבון זה אין
+// סיסמה...' -- unchanged." resetPassword shares one branch (and one message) for "no row" and
+// "row with no password"; this proves the single-row/no-password shape is unaffected, distinct
+// from the 0-row and ambiguous-match tests above.
+test('matrix row 5: resetPassword refuses a single matching row that has no password', async () => {
+    reset();
+    state.row = { id: 'u1', password: null };
+    const { res, out } = makeRes();
+    await resetPassword(req({ phone: LOCAL, otp: '123456', newPassword: 'newpass' }), res);
+
+    assert.equal(out.status, 400);
+    assert.deepEqual(out.body, { message: 'לא נמצא חשבון עם סיסמה עבור מספר זה' });
+    assert.equal(state.selectShapes.length, 1, 'no verificationCodes read when the row has no password');
+    assert.equal(state.updates.length, 0);
+});
+
+test('regression: resetPassword succeeds end-to-end when exactly one row matches', async () => {
+    reset();
+    state.row = { id: 'u1', password: '$2a$10$hash' };
+    state.otpRows = [{ id: 'vc1', userId: 'u1', code: '123456' }];
+    const { res, out } = makeRes();
+    await resetPassword(req({ phone: LOCAL, otp: '123456', newPassword: 'newpass' }), res);
+
+    assert.equal(out.status, 200);
+    assert.equal(out.body?.message, 'הסיסמה אופסה בהצלחה');
+    const written = state.updates.find(u => (u as Record<string, unknown>).password !== undefined);
+    assert.ok(written, 'the new password must be written to the single matching row');
 });
 
 test('getMe reports pwVerified and treats a token minted before the flag as unverified', () => {
