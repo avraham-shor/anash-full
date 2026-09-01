@@ -140,3 +140,23 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
   summary: The wrong-password warning's copy points every case at "שכחתי סיסמה", but for a password submitted against a passwordless account that flow immediately dead-ends into forgot-password.tsx's own "אין סיסמה מוגדרת לחשבון זה" screen instead of resetting anything.
   evidence: Not a true dead end -- that screen does redirect the member back to a phone-only login -- but it is an unnecessary extra round-trip and the warning's wording over-promises for that sub-case. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: none
+  summary: logout only clears the browser cookie -- there is no server-side revocation path, so a captured anash_token stays valid in middleware/auth.ts until it expires on its own.
+  evidence: Split from the session-lifetime intent at step-01's multi-goal check. Revocation is independently shippable but needs a schema decision (revocation table vs a tokenVersion column on users) plus a check on every authenticated request, whereas aligning the token TTL with the cookie TTL is a contained three-file change with no migration.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-jwt-cookie-ttl-mismatch.md`
+  summary: logout hand-duplicates the anash_token cookie attributes in its own clearCookie call instead of sharing them with setAuthCookie, and has no test at all.
+  evidence: A browser deletes a cookie only when the clear attributes match the set attributes, so if sameSite or secure ever changes in utils/auth-cookie.ts, logout silently stops clearing the session and nothing fails. The test harness's clearCookie stub also discards its arguments, so the path is unobservable. Raised by two review layers; the diff did not touch logout, so it is pre-existing. The missing piece is a clearAuthCookie(res) in the same module.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-jwt-cookie-ttl-mismatch.md`
+  summary: Nothing durable enforces that issueAuthToken stays the only place that calls jwt.sign -- the single-source-of-truth holds today only by convention.
+  evidence: The spec's verification was a one-off grep. An eslint no-restricted-imports rule banning jsonwebtoken outside utils/auth-cookie.ts and middleware/auth.ts, or a test asserting jwt.sign appears in exactly one source file, would make the invariant self-guarding. Raised by the blind-hunter layer.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-jwt-cookie-ttl-mismatch.md`
+  summary: setAuthCookie is still exported and still accepts any pre-signed token, so the token/cookie lifetime invariant is enforced by convention rather than structurally.
+  evidence: After the refactor nothing outside utils/auth-cookie.ts calls it -- both controllers import only issueAuthToken. Making it module-private would close the bypass and make the helper's own docstring literally true. Kept exported because the approved spec required it; flagged by all three review layers, so it deserves a deliberate decision rather than silent inheritance.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-jwt-cookie-ttl-mismatch.md`
+  summary: anash-client/src/routes/users+/$id.edit.tsx reads any 401 from its submit handler as a failed OTP, so an expired-session 401 is misreported to a passwordless member as a bad code.
+  evidence: The submit handler branches on res.status === 401 into setStep('otp') whenever the member has no password, with no way to tell an auth-expiry 401 from an OTP rejection. Pre-existing and unrelated to the TTL change (the cookie already expired at 8h before it), but the review surfaced it as the sharpest case of the client having no global 401/403 handling.

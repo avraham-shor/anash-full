@@ -27,3 +27,11 @@ REST API for the Anash directory. Repo-wide rules: `../AGENTS.md`.
 - In a new test, reach a controller through `await import()` after `mock.module`. A static import is hoisted above the mock and loads the real Railway pool and a keyless Resend client, which throws at module scope.
 
 <!-- /bmad:context -->
+
+## Local notes (outside the managed block)
+
+- Mint a session only through `issueAuthToken` (`utils/auth-cookie.ts`), which signs the JWT and
+  writes the cookie together so their lifetimes cannot drift. `setAuthCookie` is the cookie writer
+  it wraps; it stays exported, but calling it with a separately signed token reintroduces the
+  token/cookie TTL mismatch. The managed block above still names `setAuthCookie` -- it predates
+  `issueAuthToken`.

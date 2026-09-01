@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import db from '../db.ts';
 import { users, userLogins, verificationCodes } from '../db/schema.ts';
@@ -10,7 +9,7 @@ import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
 import { normalizePhone, phoneMatchCandidates, isPlausiblePhone } from '../utils/phone.ts';
 import { digitsOnly } from '../utils/phone-sql.ts';
-import { setAuthCookie } from '../utils/auth-cookie.ts';
+import { issueAuthToken } from '../utils/auth-cookie.ts';
 
 // Exported for auth-flow.test.ts, which renders this predicate to SQL as a regression test.
 export const matchesPhone = (phone: string) => {
@@ -163,8 +162,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         // it is merged into the JSON body only, and must never be spread into `params`, which is
         // what gets signed into the JWT.
         const issueToken = (params: JwtParams, extra?: Record<string, unknown>) => {
-            const token = jwt.sign(params, secret, { expiresIn: '3d' });
-            setAuthCookie(res, token);
+            issueAuthToken(res, params, secret);
             res.json({
                 user: {
                     id: params.id,

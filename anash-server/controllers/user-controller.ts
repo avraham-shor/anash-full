@@ -1,5 +1,4 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import db from '../db.ts';
 import { users, verificationCodes } from '../db/schema.ts';
@@ -8,7 +7,7 @@ import type { Request, Response } from 'express';
 import type { JwtParams } from '../interfaces/jwt-params';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { sendOtpEmail } from '../utils/email.ts';
-import { setAuthCookie } from '../utils/auth-cookie.ts';
+import { issueAuthToken } from '../utils/auth-cookie.ts';
 import { phoneSearchNeedle, isSearchableNeedle } from '../utils/phone.ts';
 import { phoneSearchCondition } from '../utils/phone-sql.ts';
 
@@ -404,14 +403,13 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
         // save. Re-issue it so the session stays usable instead of silently going read-only.
         if (newPassword && callerId === targetId) {
             const caller = (req as AuthRequest).user as JwtParams;
-            const token = jwt.sign({
+            issueAuthToken(res, {
                 id: caller.id,
                 email: caller.email,
                 name: caller.name,
                 role: caller.role,
                 pwVerified: true,
-            } as JwtParams, process.env.JWT_SECRET!, { expiresIn: '3d' });
-            setAuthCookie(res, token);
+            }, process.env.JWT_SECRET!);
         }
 
         res.json({ message: 'עודכן בהצלחה' });

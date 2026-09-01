@@ -30,6 +30,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { Request, Response } from 'express';
+import type { AuthRequest } from './middleware/auth.ts';
 import { getTableColumns } from 'drizzle-orm';
 import { userLogins, users, verificationCodes } from './db/schema.ts';
 
@@ -154,17 +155,25 @@ const { login, getMe, changeOwnPassword, matchesPhone, forgotPasswordSendOtp, re
     await import('./controllers/auth-controller.ts');
 const { getUserById, getUsers, getUserByFullName, updateUser, sendEditOtp } =
     await import('./controllers/user-controller.ts');
+const { verifyToken } = await import('./middleware/auth.ts');
 
 function makeRes() {
     const out: {
         status: number;
         body: Record<string, unknown> | undefined;
         cookies: Record<string, string>;
-    } = { status: 200, body: undefined, cookies: {} };
+        // Express's third cookie() argument. Captured because the cookie's maxAge lives there,
+        // and half of the token/cookie lifetime invariant is unassertable without it.
+        cookieOptions: Record<string, Record<string, unknown> | undefined>;
+    } = { status: 200, body: undefined, cookies: {}, cookieOptions: {} };
     const res = {
         status(code: number) { out.status = code; return res; },
         json(body: unknown) { out.body = body as Record<string, unknown>; return res; },
-        cookie(name: string, value: string) { out.cookies[name] = value; return res; },
+        cookie(name: string, value: string, options?: Record<string, unknown>) {
+            out.cookies[name] = value;
+            out.cookieOptions[name] = options;
+            return res;
+        },
         clearCookie() { return res; },
     } as unknown as Response;
     return { res, out };
@@ -178,6 +187,49 @@ const req = (body: unknown, user?: unknown, params?: unknown, query?: unknown) =
 
 const decodeCookie = (out: { cookies: Record<string, string> }) =>
     jwt.verify(out.cookies.anash_token, process.env.JWT_SECRET as string) as jwt.JwtPayload;
+
+/** The one session lifetime, spelled out here rather than imported: a test that re-derived the
+ *  number from the source it guards would pass no matter what that source said. */
+const SESSION_TTL_SECONDS = 8 * 60 * 60;
+
+/** Derived, not restated: a hand-written copy of makeRes's shape would keep compiling after the
+ *  two drifted apart. */
+type ResOut = ReturnType<typeof makeRes>['out'];
+
+/**
+ * The invariant: the signed token and the cookie carrying it expire together. They used to
+ * disagree -- `expiresIn: '3d'` against a `maxAge` of 8h -- leaving every token verifiable for
+ * 2.6 days after the browser had already dropped it, which bought members nothing and served
+ * only a replay of a captured token. Asserted at every mint site.
+ *
+ * Values pulled out of the options bag are compared with strictEqual: the bag is typed `unknown`,
+ * so a loose compare would accept the string '28800000' as an 8-hour maxAge.
+ */
+const assertSessionLifetime = (out: ResOut): jwt.JwtPayload => {
+    const token = decodeCookie(out);
+    assert.strictEqual(
+        (token.exp as number) - (token.iat as number), SESSION_TTL_SECONDS,
+        'the token must be signed for exactly one session',
+    );
+
+    const options = out.cookieOptions.anash_token;
+    assert.ok(options, 'the cookie must be written with an options bag');
+    assert.strictEqual(
+        options.maxAge, SESSION_TTL_SECONDS * 1000,
+        'the cookie must expire with the token it carries, not before or after it',
+    );
+
+    // The flags that keep the session cookie away from script and off cross-site requests. They
+    // live in the same bag as maxAge and every mint site funnels through setAuthCookie, so they
+    // are asserted here -- deleting httpOnly used to leave the whole suite green.
+    assert.strictEqual(options.httpOnly, true, 'the session cookie must never be readable by script');
+    assert.strictEqual(options.sameSite, 'lax', 'the session cookie must not ride cross-site requests');
+    assert.strictEqual(
+        options.secure, process.env.NODE_ENV === 'production',
+        'secure must track the environment rather than a hardcoded value',
+    );
+    return token;
+};
 
 const LOCAL = '0546329221';
 /** Every digits-only form phoneMatchCandidates emits, in order. */
@@ -237,6 +289,7 @@ test('login refuses input that is not a number instead of querying with it', asy
         assert.equal(out.status, 400, `expected 400 for ${JSON.stringify(bad)}`);
         assert.equal(state.selectShapes.length, 0, `${JSON.stringify(bad)} must not reach the db`);
         assert.equal(out.cookies.anash_token, undefined, 'no session for invalid input');
+        assert.equal(out.cookieOptions.anash_token, undefined, 'and no cookie was written at all');
     }
 });
 
@@ -263,7 +316,8 @@ test('row 2: an unknown number is admitted as a guest and is never written to us
     assert.deepEqual(out.body, { user: { id: '', name: '', role: 'guest', pwVerified: false } });
     assert.equal(state.inserts.length, 0, 'a guest attempt must not touch user_logins');
 
-    const token = decodeCookie(out);
+    // The guest branch mints a session like any other: same lifetime, same cookie flags.
+    const token = assertSessionLifetime(out);
     assert.equal(token.role, 'guest');
     assert.equal(token.id, '');
     assert.equal(token.pwVerified, false);
@@ -282,7 +336,7 @@ test('row 3/5: a held-back password still gets in, capped at user, and is logged
     assert.equal(state.inserts.length, 1);
     assert.equal((state.inserts[0] as { success: boolean }).success, true);
 
-    const token = decodeCookie(out);
+    const token = assertSessionLifetime(out);
     assert.equal(token.role, 'user', 'a privileged account is never elevated without its password');
     assert.equal(token.pwVerified, false);
 });
@@ -304,7 +358,8 @@ test('row 4: a wrong password degrades to a flagged session, not a 401, and is s
     assert.equal(state.inserts.length, 1);
     assert.equal((state.inserts[0] as { success: boolean }).success, false);
 
-    const token = decodeCookie(out);
+    // A degraded session is still a session: it gets the same lifetime as a verified one.
+    const token = assertSessionLifetime(out);
     assert.equal(token.role, 'user', 'a wrong password must not elevate the session');
     assert.equal(token.pwVerified, false);
     assert.equal('passwordIncorrect' in token, false, 'the hint is response-only and must never ride in the JWT');
@@ -324,7 +379,7 @@ test('row 4: a password submitted against a passwordless account takes the same 
     assert.equal(state.inserts.length, 1);
     assert.equal((state.inserts[0] as { success: boolean }).success, false, 'still logged as a failed attempt');
 
-    const token = decodeCookie(out);
+    const token = assertSessionLifetime(out);
     assert.equal(token.role, 'user');
     assert.equal(token.pwVerified, false);
 });
@@ -340,9 +395,61 @@ test('regression: a correct password still yields the real role and pwVerified',
 
     assert.equal(out.status, 200);
     assert.deepEqual(out.body, { user: { id: 'u1', name: 'ploni', role: 'owner', pwVerified: true } });
-    const token = decodeCookie(out);
+    const token = assertSessionLifetime(out);
     assert.equal(token.role, 'owner');
     assert.equal(token.pwVerified, true);
+});
+
+// --- Middleware: what the shortened TTL does and does not change ------------------------------
+// The only middleware tests in this file. verifyToken holds no TTL knowledge of its own -- it
+// just calls jwt.verify -- so these two pin the boundary the TTL change draws: already-issued
+// tokens keep their own exp, and an exp that has passed is actually enforced.
+
+test('a token minted at the old 3-day TTL is still accepted until its own exp', () => {
+    // Shortening the TTL binds newly minted tokens only. Members holding a live pre-change token
+    // must not be logged out mid-session, so verifyToken keeps honouring whatever exp was signed
+    // into it -- there is no revocation path, and this change deliberately did not add one.
+    const legacy = jwt.sign(
+        { id: 'u1', name: 'ploni', role: 'owner', pwVerified: true },
+        process.env.JWT_SECRET as string,
+        { expiresIn: '3d' },
+    );
+    const { res, out } = makeRes();
+    const request = { cookies: { anash_token: legacy } } as unknown as AuthRequest;
+
+    // The argument matters: Express treats next(err) as a failure, so a spy that ignored it would
+    // record a rejected request as a pass.
+    let reached = false;
+    let nextArg: unknown = 'never called';
+    verifyToken(request, res, (err?: unknown) => { reached = true; nextArg = err; });
+
+    assert.ok(reached, 'a pre-change token must still pass the middleware');
+    assert.strictEqual(nextArg, undefined, 'and must pass cleanly, not via next(err)');
+    // makeRes starts at 200, so the status alone cannot tell "accepted" from "never answered".
+    // An empty body is what separates them: every verifyToken rejection writes a JSON message.
+    assert.equal(out.status, 200, 'and must not be rejected as invalid or expired');
+    assert.equal(out.body, undefined, 'a passing request writes no error body');
+    assert.equal(request.user?.id, 'u1', 'its payload stays readable to the routes behind it');
+});
+
+test('an expired token is refused with 403 and never reaches the route behind it', () => {
+    // The negative counterpart: without this, nothing proves an exp in the past is enforced at
+    // all, and a token that never expired would satisfy the test above just as well.
+    const expired = jwt.sign(
+        { id: 'u1', name: 'ploni', role: 'owner', pwVerified: true },
+        process.env.JWT_SECRET as string,
+        { expiresIn: -10 },
+    );
+    const { res, out } = makeRes();
+    const request = { cookies: { anash_token: expired } } as unknown as AuthRequest;
+
+    let reached = false;
+    verifyToken(request, res, () => { reached = true; });
+
+    assert.equal(reached, false, 'an expired token must never reach the route behind the gate');
+    assert.equal(out.status, 403, 'expiry is a 403, not the 401 reserved for a missing token');
+    assert.equal(out.body?.message, 'Invalid or expired token');
+    assert.equal(request.user, undefined, 'and no payload is handed downstream');
 });
 
 // --- Select shaping: login and forgotPasswordSendOtp must not pull every users column ----------
@@ -620,7 +727,8 @@ test('setting a first password through the OTP flow re-issues the cookie as pwVe
     assert.ok(!('otp' in (written as Record<string, unknown>)), 'otp is not a member column');
 
     assert.ok(out.cookies.anash_token, 'a fresh cookie must be issued');
-    const token = decodeCookie(out);
+    // The second mint site: it must agree with login's, which is why both go through one helper.
+    const token = assertSessionLifetime(out);
     assert.equal(token.pwVerified, true);
     assert.equal(token.id, 'u1');
     assert.equal(token.role, 'user', 'the re-issued token keeps the role, it does not grant one');
