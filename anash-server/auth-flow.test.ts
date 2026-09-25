@@ -48,15 +48,29 @@ const state: {
     passwordRow: Row;
     /** Rows the `verificationCodes` table yields -- the OTP path. */
     otpRows: Record<string, unknown>[];
+    /**
+     * Rows the `userLogins` table yields for `getLoginLogs`'s select. Already shaped as the final
+     * joined result (e.g. `fullName`/`city` included directly) -- this mock does not model the
+     * left join itself, it just hands back whatever a test configures.
+     */
+    loginLogRows: Record<string, unknown>[];
     inserts: unknown[];
     updates: unknown[];
     selectShapes: (Record<string, unknown> | undefined)[];
     chain: string[];
     /** Calls to the mocked `sendOtpEmail` -- so a test can assert on an OTP email without a live Resend call. */
     emailsSent: { to: string; code: string }[];
+    /**
+     * When true, awaiting an `insert(userLogins).values(...)` chain rejects instead of resolving --
+     * simulates a transient DB failure writing the audit row, so a test can prove that failure does
+     * not propagate out of `login`'s guest branch.
+     */
+    userLoginsInsertShouldThrow: boolean;
 } = {
     row: undefined, rows: undefined, passwordRow: undefined, otpRows: [],
+    loginLogRows: [],
     inserts: [], updates: [], selectShapes: [], chain: [], emailsSent: [],
+    userLoginsInsertShouldThrow: false,
 };
 
 function reset() {
@@ -64,11 +78,13 @@ function reset() {
     state.rows = undefined;
     state.passwordRow = undefined;
     state.otpRows = [];
+    state.loginLogRows = [];
     state.inserts = [];
     state.updates = [];
     state.selectShapes = [];
     state.chain = [];
     state.emailsSent = [];
+    state.userLoginsInsertShouldThrow = false;
 }
 
 /**
@@ -81,6 +97,8 @@ function reset() {
  */
 function builder(requested?: Record<string, unknown>) {
     let source: unknown[] = [];
+    let table: unknown;
+    let hadValues = false;
 
     const project = (row: Record<string, unknown>, keys: string[] | null) =>
         keys === null ? row : Object.fromEntries(keys.filter(k => k in row).map(k => [k, row[k]]));
@@ -104,10 +122,16 @@ function builder(requested?: Record<string, unknown>) {
     };
 
     const obj: Record<string, unknown> = {
-        from: (table: unknown) => {
+        from: (t: unknown) => {
             state.chain.push('from');
-            if (table === verificationCodes) source = state.otpRows;
-            else if (table === userLogins) source = [];
+            table = t;
+            if (t === verificationCodes) source = state.otpRows;
+            else if (t === userLogins) {
+                // getLoginLogs's fixture: already shaped as the final (joined) row, so just
+                // project it down to the requested columns like every other read does.
+                const keys = requested ? Object.keys(requested) : null;
+                source = state.loginLogRows.map(row => project(row, keys));
+            }
             else source = rowsForUsers();
             return obj;
         },
@@ -115,10 +139,17 @@ function builder(requested?: Record<string, unknown>) {
         limit: () => { state.chain.push('limit'); return obj; },
         orderBy: () => { state.chain.push('orderBy'); return obj; },
         innerJoin: () => { state.chain.push('innerJoin'); return obj; },
+        leftJoin: () => { state.chain.push('leftJoin'); return obj; },
         set: (values: unknown) => { state.updates.push(values); return obj; },
-        values: (values: unknown) => { state.inserts.push(values); return obj; },
-        // Awaiting the builder resolves to the routed rows, exactly as a drizzle query does.
+        values: (values: unknown) => { state.inserts.push(values); hadValues = true; return obj; },
+        // Awaiting the builder resolves to the routed rows, exactly as a drizzle query does --
+        // except a userLogins insert while userLoginsInsertShouldThrow is set, which rejects
+        // instead, simulating a transient DB failure on the audit-log write.
         then(onFulfilled: unknown, onRejected: unknown) {
+            if (hadValues && table === userLogins && state.userLoginsInsertShouldThrow) {
+                return Promise.reject(new Error('mock: userLogins insert failed'))
+                    .then(onFulfilled as never, onRejected as never);
+            }
             return Promise.resolve(source).then(onFulfilled as never, onRejected as never);
         },
     };
@@ -150,7 +181,7 @@ mock.module('./utils/email.ts', {
     },
 });
 
-const { login, getMe, changeOwnPassword, matchesPhone, forgotPasswordSendOtp, resetPassword } =
+const { login, getMe, getLoginLogs, changeOwnPassword, matchesPhone, forgotPasswordSendOtp, resetPassword } =
     await import('./controllers/auth-controller.ts');
 const { getUserById, getUsers, getUserByFullName, updateUser, sendEditOtp } =
     await import('./controllers/user-controller.ts');
@@ -254,19 +285,85 @@ test('login resolves a multi-row match deterministically, not arbitrarily', asyn
 
 // --- Matrix row 2: unknown number ------------------------------------------------------------
 
-test('row 2: an unknown number is admitted as a guest and is never written to user_logins', async () => {
+test('row 2: an unknown number is admitted as a guest and the attempt is recorded with no user row', async () => {
     reset();
     const { res, out } = makeRes();
     await login(req({ phone: '+972-99-999-9999' }), res);
 
     assert.equal(out.status, 200);
     assert.deepEqual(out.body, { user: { id: '', name: '', role: 'guest', pwVerified: false } });
-    assert.equal(state.inserts.length, 0, 'a guest attempt must not touch user_logins');
+
+    // userId: null -- there is no users row a guest attempt could point at -- and phoneNumber
+    // carries the normalized number instead, so /login-logs can still show the attempt happened.
+    assert.equal(state.inserts.length, 1, 'a guest attempt must still be written to user_logins');
+    assert.deepEqual(state.inserts[0], {
+        userId: null,
+        phoneNumber: '0999999999',
+        ipAddress: '1.2.3.4',
+        userAgent: null,
+        success: true,
+    });
 
     const token = decodeCookie(out);
     assert.equal(token.role, 'guest');
     assert.equal(token.id, '');
     assert.equal(token.pwVerified, false);
+});
+
+test('row 2: a DB failure writing the guest audit row does not block guest admission', async () => {
+    reset();
+    state.userLoginsInsertShouldThrow = true;
+    const { res, out } = makeRes();
+    await login(req({ phone: '+972-99-999-9999' }), res);
+
+    // Before this feature, a guest admission was pure read-only computation with no failure mode.
+    // The audit-log write is a side effect, not a precondition for read-only access -- a transient
+    // DB hiccup writing it must not turn an otherwise-successful guest admission into a 500.
+    assert.equal(out.status, 200, 'a failed audit-log write must not fail guest admission');
+    assert.deepEqual(out.body, { user: { id: '', name: '', role: 'guest', pwVerified: false } });
+
+    const token = decodeCookie(out);
+    assert.equal(token.role, 'guest');
+    assert.equal(token.id, '');
+    assert.equal(token.pwVerified, false);
+});
+
+test('getLoginLogs left-joins users so a guest row is kept, with phoneNumber set and fullName null', async () => {
+    reset();
+    state.loginLogRows = [
+        {
+            id: 2, userId: null, phoneNumber: '0999999999',
+            loggedInAt: new Date().toISOString(), ipAddress: '1.2.3.4', userAgent: null,
+            success: true, fullName: null, city: null,
+        },
+        {
+            id: 1, userId: 'u1', phoneNumber: null,
+            loggedInAt: new Date().toISOString(), ipAddress: '1.2.3.4', userAgent: null,
+            success: true, fullName: 'ploni', city: 'צפת',
+        },
+    ];
+    const { res, out } = makeRes();
+    await getLoginLogs(req({}, { id: 'owner1', name: 'a', role: 'owner' }), res);
+
+    assert.equal(out.status, 200);
+    // The old innerJoin silently dropped any user_logins row with no matching users row -- exactly
+    // what a guest attempt is. A reverted leftJoin would fail this.
+    assert.ok(state.chain.includes('leftJoin'), 'getLoginLogs must left-join users, not inner-join');
+    assert.ok(!state.chain.includes('innerJoin'), 'getLoginLogs must not inner-join users');
+
+    const rows = out.body as Record<string, unknown>[];
+    assert.equal(rows.length, 2, 'the guest row must not be dropped');
+
+    const guestRow = rows.find(r => r.userId === null);
+    assert.ok(guestRow, 'the guest row must be present');
+    assert.equal(guestRow.phoneNumber, '0999999999');
+    assert.equal(guestRow.fullName, null);
+    assert.equal(guestRow.city, null);
+
+    const userRow = rows.find(r => r.userId === 'u1');
+    assert.ok(userRow, 'the authenticated row must still be present');
+    assert.equal(userRow.fullName, 'ploni');
+    assert.equal(userRow.phoneNumber, null, 'an authenticated row never carries a phoneNumber');
 });
 
 // --- Matrix rows 3, 4 and 5: the password branches ---------------------------------------------
@@ -281,6 +378,10 @@ test('row 3/5: a held-back password still gets in, capped at user, and is logged
     assert.deepEqual(out.body, { user: { id: 'u1', name: 'ploni', role: 'user', pwVerified: false } });
     assert.equal(state.inserts.length, 1);
     assert.equal((state.inserts[0] as { success: boolean }).success, true);
+    assert.equal(
+        (state.inserts[0] as { phoneNumber?: string }).phoneNumber, undefined,
+        'an authenticated login is identified by userId via the join -- it must not also carry a phoneNumber',
+    );
 
     const token = decodeCookie(out);
     assert.equal(token.role, 'user', 'a privileged account is never elevated without its password');

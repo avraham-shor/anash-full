@@ -56,7 +56,8 @@ export const users = pgTable('users', {
 
 export const userLogins = pgTable('user_logins', {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
-    userId: text('user_id').notNull().references(() => users.id),
+    userId: text('user_id').references(() => users.id),
+    phoneNumber: text('phone_number'),
     loggedInAt: timestamp('logged_in_at', { withTimezone: true }).notNull().defaultNow(),
     ipAddress: inet('ip_address'),
     userAgent: text('user_agent'),

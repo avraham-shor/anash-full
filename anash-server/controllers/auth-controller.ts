@@ -93,6 +93,7 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
             .select({
                 id: userLogins.id,
                 userId: userLogins.userId,
+                phoneNumber: userLogins.phoneNumber,
                 loggedInAt: userLogins.loggedInAt,
                 ipAddress: userLogins.ipAddress,
                 userAgent: userLogins.userAgent,
@@ -101,7 +102,7 @@ export const getLoginLogs = async (req: Request, res: Response): Promise<void> =
                 city: users.city,
             })
             .from(userLogins)
-            .innerJoin(users, eq(users.id, userLogins.userId))
+            .leftJoin(users, eq(users.id, userLogins.userId))
             .where(conditions.length > 0 ? and(...conditions) : undefined)
             .orderBy(desc(userLogins.loggedInAt));
 
@@ -176,16 +177,33 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             });
         };
 
+        const ip = req.ip ?? null;
+        const ua = (req.headers['user-agent'] as string) ?? null;
+
         // Unknown number: admitted as a guest, which grants directory read access only.
-        // Nothing is recorded — user_logins.userId is NOT NULL with an FK to users,
-        // so a guest attempt has no row it could point at.
+        // userId is null -- there is no users row for a guest attempt to point at -- and
+        // phoneNumber carries the normalized number instead, so the attempt still shows up
+        // in the audit trail (see getLoginLogs's left join).
+        //
+        // The insert is isolated in its own try/catch, deliberately not the outer one: before
+        // this feature, guest admission was pure read-only computation with no failure mode.
+        // The audit row is a side effect, not a precondition for access -- a transient DB
+        // hiccup writing it must never turn an otherwise-successful guest admission into a 500.
         if (!row) {
+            try {
+                await db.insert(userLogins).values({
+                    userId: null,
+                    phoneNumber: phone,
+                    ipAddress: ip,
+                    userAgent: ua,
+                    success: true,
+                });
+            } catch (err) {
+                console.error('Failed to record guest login attempt', err);
+            }
             issueToken({ id: '', name: '', role: 'guest', pwVerified: false });
             return;
         }
-
-        const ip = req.ip ?? null;
-        const ua = (req.headers['user-agent'] as string) ?? null;
 
         const logLogin = (success: boolean) =>
             db.insert(userLogins).values({

@@ -8,6 +8,13 @@
       "when": 1782906903129,
       "tag": "0000_clever_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790333402814,
+      "tag": "0001_flowery_namorita",
+      "breakpoints": true
     }
   ]
 }
