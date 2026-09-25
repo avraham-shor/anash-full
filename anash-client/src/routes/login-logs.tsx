@@ -7,13 +7,14 @@ import { Loader } from '../components/loader.tsx';
 
 interface LoginLog {
     id: number;
-    userId: string;
+    userId: string | null;
+    phoneNumber: string | null;
     loggedInAt: string;
     ipAddress: string | null;
     userAgent: string | null;
     success: boolean;
-    fullName: string;
-    city: string;
+    fullName: string | null;
+    city: string | null;
 }
 
 type SuccessFilter = 'all' | 'success' | 'fail';
@@ -184,9 +185,15 @@ function LoginLogs() {
                                                     </span>
                                                 </td>
                                                 <td className={styles.nameCell}>
-                                                    <Link to={`/users/${log.userId}`} className={styles.nameLink}>
-                                                        {log.fullName}
-                                                    </Link>
+                                                    {log.userId ? (
+                                                        <Link to={`/users/${log.userId}`} className={styles.nameLink}>
+                                                            {log.fullName || '—'}
+                                                        </Link>
+                                                    ) : (
+                                                        <span className={styles.phoneNumber} dir="ltr">
+                                                            {log.phoneNumber || '—'}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td>{log.city || '—'}</td>
                                                 <td className={styles.dateCell}>{formatDate(log.loggedInAt)}</td>

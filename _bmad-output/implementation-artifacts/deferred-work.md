@@ -140,3 +140,19 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-login-wrong-password-degrade.md`
   summary: The wrong-password warning's copy points every case at "שכחתי סיסמה", but for a password submitted against a passwordless account that flow immediately dead-ends into forgot-password.tsx's own "אין סיסמה מוגדרת לחשבון זה" screen instead of resetting anything.
   evidence: Not a true dead end -- that screen does redirect the member back to a phone-only login -- but it is an unnecessary extra round-trip and the warning's wording over-promises for that sub-case. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-record-guest-logins.md`
+  summary: anash-client still has no test runner, test script, or testing-library/vitest/jest dependency at all, so login-logs.tsx's new nullable-userId/phoneNumber render branch has zero automated coverage.
+  evidence: Pre-existing repo-wide gap, already named in spec-phone-search-short-needle-leak's and spec-login-wrong-password-degrade's deferred items; newly relevant again because this story's only client-visible behavior change (the guest-row name-cell fallback) has zero test coverage as a result. Raised by the verification-gap review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-record-guest-logins.md`
+  summary: getLoginLogs's tests in auth-flow.test.ts assert that `.leftJoin` was called and hand back a canned fixture, but the mock does not model real SQL join semantics -- a wrong join predicate (e.g. comparing the wrong columns) would not be caught by the suite.
+  evidence: Inherent to the mock-based test architecture documented in anash-server/AGENTS.md (no local Postgres, `mock.module` substitutes a fake db) -- the same limitation would apply to any join, not just this one. getLoginLogs had zero tests before this story added the first ones. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-record-guest-logins.md`
+  summary: user_logins has no CHECK constraint enforcing that exactly one of userId/phoneNumber is set -- a future bug or new call site could insert a row with both null or both non-null and Postgres would accept it silently.
+  evidence: The migration only drops NOT NULL on user_id and adds a nullable phone_number; nothing at the DB level encodes the "guest XOR identified" invariant the application code currently maintains by convention. Raised by the blind-hunter review layer during the checkpoint review of this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-record-guest-logins.md`
+  summary: Guest admissions and verified-password logins are both recorded with success:true, so /login-logs's "successful logins" stat card and success/fail filter can no longer distinguish a real member login from an anonymous guest browse.
+  evidence: A guest row is already visually distinguishable in the table (phone number instead of a name/link), but the aggregate stats and filter blend the two together -- on a directory that gets meaningful anonymous traffic, "successful logins" may end up mostly reflecting guest visits rather than member activity. Raised by the blind-hunter review layer during the checkpoint review of this story.

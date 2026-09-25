@@ -247,6 +247,10 @@
   color: var(--primary-hover);
 }
 
+.phoneNumber {
+  direction: ltr;
+}
+
 .dateCell {
   color: var(--text-muted);
   font-size: 13px;
